@@ -1,315 +1,175 @@
 import { useState } from 'react';
-import './index.css';
+import type { Product } from './data';
+import Navbar from './components/Navbar';
+import CartFlyout from './components/CartFlyout';
+import PDPModal from './components/PDPModal';
+import Home from './pages/Home';
+import Collections from './pages/Collections';
+import About from './pages/About';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  image: string;
+interface CartItem {
+  product: Product;
+  quantity: number;
+  selectedSize: string;
+  selectedColor: string;
 }
 
-const products: Product[] = [
-  {
-    id: '1',
-    name: 'Minimalist Overcoat',
-    price: 299,
-    category: 'Outerwear',
-    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '2',
-    name: 'Silk Crepe Dress',
-    price: 185,
-    category: 'Dresses',
-    image: 'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '3',
-    name: 'Structured Blazer',
-    price: 245,
-    category: 'Tailoring',
-    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '4',
-    name: 'Essential Cotton Tee',
-    price: 45,
-    category: 'Basics',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '5',
-    name: 'Tailored Wool Trousers',
-    price: 160,
-    category: 'Bottoms',
-    image: 'https://images.unsplash.com/photo-1434389678369-182cb20dcb86?auto=format&fit=crop&q=80&w=800'
-  },
-  {
-    id: '6',
-    name: 'Leather Crossbody',
-    price: 210,
-    category: 'Accessories',
-    image: 'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&q=80&w=800'
-  }
-];
-
 export default function App() {
-  const [cart, setCart] = useState<{product: Product, quantity: number}[]>([]);
+  const [currentPage, setCurrentPage] = useState('home');
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout' | 'success'>('cart');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const addToCart = (product: Product) => {
+  const navigate = (page: string) => {
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  };
+
+  const handleAddToCart = (product: Product, size: string, color: string) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => 
+        item.product.id === product.id && 
+        item.selectedSize === size && 
+        item.selectedColor === color
+      );
       if (existing) {
-        return prev.map(item => item.product.id === product.id 
-          ? { ...item, quantity: item.quantity + 1 } 
-          : item
+        return prev.map(item => 
+          item === existing 
+            ? { ...item, quantity: item.quantity + 1 } 
+            : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, selectedSize: size, selectedColor: color }];
     });
+    setSelectedProduct(null);
     setIsCartOpen(true);
-    setCheckoutStep('cart');
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== id));
+  const updateQuantity = (id: string, size: string, color: string, qty: number) => {
+    if (qty < 1) {
+      removeItem(id, size, color);
+      return;
+    }
+    setCart(prev => prev.map(item => 
+      (item.product.id === id && item.selectedSize === size && item.selectedColor === color)
+        ? { ...item, quantity: qty }
+        : item
+    ));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-
+  const removeItem = (id: string, size: string, color: string) => {
+    setCart(prev => prev.filter(item => 
+      !(item.product.id === id && item.selectedSize === size && item.selectedColor === color)
+    ));
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-[#f8f9fa] to-[#e9ecef]">
       
-      {/* Abstract Background Orbs for Glassmorphism Context */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-200/50 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-200/40 blur-[120px] pointer-events-none" />
+      {/* Background Ambience */}
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-200/50 blur-[120px] pointer-events-none transition-all duration-1000" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-200/40 blur-[150px] pointer-events-none transition-all duration-1000" />
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 px-8 py-5">
-        <div className="glass-panel max-w-7xl mx-auto rounded-full flex justify-between items-center px-8 py-3">
-          <h1 className="text-2xl font-bold tracking-tighter text-primary">AURA.</h1>
-          <nav className="hidden md:flex gap-8 text-sm font-medium tracking-wide">
-            <a href="#" className="hover:text-accent transition-colors">COLLECTIONS</a>
-            <a href="#" className="hover:text-accent transition-colors">NEW ARRIVALS</a>
-            <a href="#" className="hover:text-accent transition-colors">ABOUT</a>
-          </nav>
-          <button 
-            className="flex items-center gap-2 hover:opacity-70 transition-opacity relative"
-            onClick={() => setIsCartOpen(true)}
-          >
-            <span className="text-sm font-medium">CART</span>
-            <div className="bg-primary text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
-              {cart.reduce((sum, item) => sum + item.quantity, 0)}
+      <Navbar 
+        cartItemCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
+        onOpenCart={() => setIsCartOpen(true)}
+        currentPage={currentPage}
+        navigate={navigate}
+      />
+
+      <main className="min-h-screen flex flex-col">
+        {currentPage === 'home' && <Home onProductClick={setSelectedProduct} navigate={navigate} />}
+        {currentPage === 'collections' && <Collections onProductClick={setSelectedProduct} initialFilter="all" />}
+        {currentPage === 'new-arrivals' && <Collections key="new-arrivals" onProductClick={setSelectedProduct} initialFilter="new-arrivals" />}
+        {currentPage === 'about' && <About />}
+      </main>
+
+      <footer className="w-full border-t border-gray-200/50 pt-16 pb-8 relative z-10 bg-white/30 backdrop-blur-sm mt-auto">
+        <div className="max-w-7xl mx-auto px-8 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          {/* Shop Details */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-1">
+            <h3 className="text-2xl font-black tracking-tighter mb-4 text-black">AURA.</h3>
+            <p className="text-sm text-gray-500 font-light leading-relaxed mb-6">
+              Meticulously crafted, timeless pieces that form the foundation of a modern wardrobe. Redefining staples for the contemporary minimalist.
+            </p>
+            <div className="flex gap-4">
+              {/* Instagram Icon */}
+              <a href="#" className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors">
+                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100-2.881 1.44 1.44 0 000 2.881z"/></svg>
+              </a>
+              {/* Facebook Icon */}
+              <a href="#" className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </a>
             </div>
-          </button>
-        </div>
-      </header>
+          </div>
+          
+          {/* Links */}
+          <div className="col-span-1 md:col-span-1 lg:col-start-3">
+            <h4 className="text-sm font-bold tracking-widest uppercase mb-4 text-gray-900">Explore</h4>
+            <ul className="space-y-3">
+              <li><button onClick={() => navigate('collections')} className="text-sm text-gray-500 hover:text-black transition-colors">Collections</button></li>
+              <li><button onClick={() => navigate('new-arrivals')} className="text-sm text-gray-500 hover:text-black transition-colors">New Arrivals</button></li>
+              <li><button onClick={() => navigate('about')} className="text-sm text-gray-500 hover:text-black transition-colors">About Us</button></li>
+              <li><a href="#" className="text-sm text-gray-500 hover:text-black transition-colors">Size Guide</a></li>
+            </ul>
+          </div>
 
-      {/* Hero Section */}
-      <section className="pt-40 pb-20 px-8 max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
-        <h2 className="text-6xl md:text-8xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-500 mb-6 drop-shadow-sm">
-          Simplicity is <br/> the ultimate sophistication.
-        </h2>
-        <p className="text-lg md:text-xl text-gray-500 max-w-2xl mb-12 font-light">
-          Discover our new Spring/Summer collection. Elevate your everyday with premium materials and timeless silhouettes.
-        </p>
-        <button className="glass-dark px-10 py-4 rounded-full text-sm font-semibold tracking-widest hover:scale-105 hover:bg-black/80 transition-all duration-300">
-          EXPLORE NOW
-        </button>
-      </section>
-
-      {/* Product Grid */}
-      <section className="px-8 pb-32 max-w-7xl mx-auto relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 perspective-1000">
-          {products.map((product) => (
-            <div 
-              key={product.id}
-              className="group cursor-pointer perspective-1000"
-            >
-              <div 
-                className="glass-card rounded-3xl p-6 h-full flex flex-col relative overflow-hidden transition-all duration-500 ease-out transform-style-3d group-hover:[transform:rotateX(5deg)_rotateY(-10deg)_translateZ(20px)] shadow-[0_4px_20px_rgba(0,0,0,0.1)] group-hover:shadow-[20px_20px_40px_rgba(0,0,0,0.2)]"
-              >
-                {/* Subtle shine effect on hover */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/40 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none transform -translate-x-full group-hover:translate-x-full duration-1000"></div>
-
-                <div className="relative h-80 rounded-2xl overflow-hidden mb-6 bg-gray-100 transition-transform duration-500 ease-out transform-style-3d group-hover:[transform:translateZ(40px)]">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-4 left-4 glass-panel px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                    {product.category}
-                  </div>
-                </div>
-                
-                <div className="mt-auto transition-transform duration-500 ease-out transform-style-3d group-hover:[transform:translateZ(30px)]">
-                  <h3 className="text-xl font-semibold mb-1 text-gray-800">{product.name}</h3>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="text-lg font-light text-gray-600">${product.price}</span>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
-                      className="glass-panel px-6 py-2 rounded-full text-sm font-medium hover:bg-black hover:text-white transition-colors duration-300 shadow-sm hover:shadow-md"
-                    >
-                      ADD
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Cart / Checkout Overlay */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div 
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsCartOpen(false)}
-          />
-          <div className="glass-card w-full max-w-md h-full relative z-10 flex flex-col border-l border-white/40 animate-slide-in">
-            
-            <div className="p-6 border-b border-white/20 flex justify-between items-center backdrop-blur-md bg-white/40">
-              <h2 className="text-xl font-bold tracking-tight">
-                {checkoutStep === 'cart' ? 'YOUR CART' : checkoutStep === 'checkout' ? 'CHECKOUT' : 'SUCCESS'}
-              </h2>
-              <button 
-                onClick={() => setIsCartOpen(false)}
-                className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center hover:bg-black/10 transition-colors"
-                aria-label="Close cart"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {checkoutStep === 'success' ? (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                  <div className="w-20 h-20 bg-green-500/20 text-green-600 rounded-full flex items-center justify-center text-4xl mb-4 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
-                    ✓
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800">Order Confirmed!</h3>
-                  <p className="text-gray-500">Thank you for your purchase.</p>
-                  <button 
-                    onClick={() => {
-                      setCart([]);
-                      setIsCartOpen(false);
-                      setTimeout(() => setCheckoutStep('cart'), 300);
-                    }}
-                    className="glass-dark mt-8 px-8 py-3 rounded-full text-sm font-bold tracking-wider w-full"
-                  >
-                    CONTINUE SHOPPING
-                  </button>
-                </div>
-              ) : cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <p className="mb-4">Your cart is empty.</p>
-                  <button 
-                    onClick={() => setIsCartOpen(false)}
-                    className="glass-panel px-6 py-2 rounded-full text-sm font-bold text-gray-800"
-                  >
-                    BROWSE PRODUCTS
-                  </button>
-                </div>
-              ) : checkoutStep === 'cart' ? (
-                <div className="space-y-6">
-                  {cart.map(item => (
-                    <div key={item.product.id} className="flex gap-4 glass-panel p-3 rounded-2xl">
-                      <div className="w-20 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                        <img src={item.product.image} className="w-full h-full object-cover" alt={item.product.name} />
-                      </div>
-                      <div className="flex-1 flex flex-col justify-between py-1">
-                        <div>
-                          <div className="flex justify-between">
-                            <h4 className="font-semibold text-sm text-gray-800 line-clamp-1">{item.product.name}</h4>
-                            <button 
-                              onClick={() => removeFromCart(item.product.id)}
-                              className="text-gray-400 hover:text-red-500 transition-colors text-xs"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{item.product.category}</p>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-light">${item.product.price}</span>
-                          <span className="text-xs font-bold glass-panel px-2 py-1 rounded-md">Qty: {item.quantity}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4 animate-fade-in">
-                  <h3 className="font-bold text-gray-800 mb-4">Shipping Details</h3>
-                  <input type="text" placeholder="Full Name" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-                  <input type="email" placeholder="Email Address" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-                  <input type="text" placeholder="Address" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-                  
-                  <h3 className="font-bold text-gray-800 mt-8 mb-4">Payment</h3>
-                  <div className="glass-panel p-4 rounded-xl space-y-4">
-                    <input type="text" placeholder="Card Number" className="w-full bg-white/50 px-4 py-2 rounded-lg text-sm border border-white/40 outline-none" />
-                    <div className="flex gap-4">
-                      <input type="text" placeholder="MM/YY" className="w-1/2 bg-white/50 px-4 py-2 rounded-lg text-sm border border-white/40 outline-none" />
-                      <input type="text" placeholder="CVC" className="w-1/2 bg-white/50 px-4 py-2 rounded-lg text-sm border border-white/40 outline-none" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {cart.length > 0 && checkoutStep !== 'success' && (
-              <div className="p-6 bg-white/40 backdrop-blur-md border-t border-white/20">
-                <div className="flex justify-between mb-4 text-gray-800">
-                  <span className="font-medium">Subtotal</span>
-                  <span className="font-bold">${cartTotal}</span>
-                </div>
-                <div className="flex justify-between mb-6 text-sm text-gray-500">
-                  <span>Shipping</span>
-                  <span>Free</span>
-                </div>
-                <button 
-                  onClick={() => {
-                    if (checkoutStep === 'cart') setCheckoutStep('checkout');
-                    else setCheckoutStep('success');
-                  }}
-                  className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-between px-8"
-                >
-                  <span>{checkoutStep === 'cart' ? 'CHECKOUT' : 'PAY NOW'}</span>
-                  <span>${cartTotal}</span>
-                </button>
-              </div>
-            )}
+          {/* Location */}
+          <div className="col-span-1 md:col-span-1">
+             <h4 className="text-sm font-bold tracking-widest uppercase mb-4 text-gray-900">Visit Us</h4>
+             <ul className="space-y-3">
+              <li className="text-sm text-gray-500 leading-relaxed">
+                <strong className="text-gray-800">AURA Flagship Store</strong><br/>
+                No. 42, Galle Road,<br/>
+                Colombo 03,<br/>
+                Sri Lanka
+              </li>
+              <li className="text-sm text-gray-500 mt-4 leading-relaxed">
+                <a href="mailto:hello@auraclothing.lk" className="hover:text-black transition-colors block">hello@auraclothing.lk</a>
+                <a href="tel:+94112345678" className="hover:text-black transition-colors block">+94 11 234 5678</a>
+              </li>
+             </ul>
           </div>
         </div>
+        <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-200/50 pt-8">
+          <div className="text-xs text-gray-400 font-bold tracking-widest uppercase">© 2026 AURA Clothing. All Rights Reserved.</div>
+          <div className="flex gap-4">
+            <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Privacy Policy</a>
+            <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Terms of Service</a>
+          </div>
+        </div>
+      </footer>
+
+      <CartFlyout 
+        isOpen={isCartOpen} 
+        onClose={() => setIsCartOpen(false)} 
+        cart={cart}
+        updateQuantity={updateQuantity}
+        removeItem={removeItem}
+        clearCart={() => setCart([])}
+      />
+
+      {selectedProduct && (
+        <PDPModal 
+          product={selectedProduct} 
+          onClose={() => setSelectedProduct(null)} 
+          onAddToCart={handleAddToCart}
+        />
       )}
 
-      {/* Global styles for animations not covered by tailwind utilities natively */}
-      <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-in {
-          animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.4s ease-out forwards;
-        }
-      `}</style>
+      {/* WhatsApp FAB */}
+      <a 
+        href="https://wa.me/94771234567" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-[0_8px_30px_rgba(37,211,102,0.4)] hover:scale-110 transition-transform animate-bounce hover:animate-none flex items-center justify-center cursor-pointer"
+        aria-label="Chat on WhatsApp"
+      >
+        <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+        </svg>
+      </a>
     </div>
   );
 }

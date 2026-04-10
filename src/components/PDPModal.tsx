@@ -1,0 +1,106 @@
+import { useState } from 'react';
+import type { Product } from '../data';
+import { formatPrice } from '../data';
+
+interface PDPModalProps {
+  product: Product;
+  onClose: () => void;
+  onAddToCart: (product: Product, size: string, color: string) => void;
+}
+
+export default function PDPModal({ product, onClose, onAddToCart }: PDPModalProps) {
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
+  const [selectedColor, setSelectedColor] = useState(product.colors[0]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 animate-fade-in">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className="glass-card w-full max-w-5xl h-[90vh] md:h-auto md:max-h-[85vh] relative z-10 flex flex-col md:flex-row overflow-hidden rounded-3xl animate-slide-in shadow-2xl">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/40 transition-colors shadow-sm"
+        >
+          ✕
+        </button>
+
+        {/* Image Gallery */}
+        <div className="w-full md:w-1/2 p-4 md:p-6 flex flex-col gap-4 bg-gray-50/50">
+          <div className="flex-1 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center">
+            <img 
+              src={product.images[selectedImage]} 
+              alt={product.name} 
+              className="w-full h-full object-cover transition-opacity duration-300"
+              loading="lazy"
+            />
+          </div>
+          <div className="flex gap-4 h-24">
+            {product.images.map((img, idx) => (
+              <button 
+                key={idx}
+                onClick={() => setSelectedImage(idx)}
+                className={`w-20 h-full rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx ? 'border-black' : 'border-transparent opacity-60 hover:opacity-100'}`}
+              >
+                <img src={img} className="w-full h-full object-cover" alt={`${product.name} thumbnail ${idx + 1}`} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Product Details */}
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col overflow-y-auto bg-white/40">
+          <div className="uppercase text-xs font-bold tracking-widest text-gray-500 mb-2">{product.category}</div>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">{product.name}</h2>
+          <div className="text-2xl font-light text-gray-700 mb-8">{formatPrice(product.price)}</div>
+
+          <div className="mb-8 p-6 glass-panel rounded-2xl border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.03)] bg-white/30">
+            <h3 className="text-sm font-bold text-gray-800 tracking-wide uppercase mb-3 flex items-center justify-between">
+              Color: <span className="text-gray-500 font-normal capitalize">{selectedColor.name}</span>
+            </h3>
+            <div className="flex gap-3">
+              {product.colors.map(color => (
+                <button
+                  key={color.name}
+                  onClick={() => setSelectedColor(color)}
+                  className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColor.name === color.name ? 'border-black scale-110 shadow-md' : 'border-gray-200 hover:scale-105'}`}
+                  style={{ backgroundColor: color.hex }}
+                  title={color.name}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-auto p-6 glass-panel rounded-2xl border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.03)] bg-white/30">
+            <div className="flex justify-between items-end mb-3">
+              <h3 className="text-sm font-bold text-gray-800 tracking-wide uppercase">Size</h3>
+              <a href="#" className="text-xs text-gray-500 underline underline-offset-2 hover:text-black">Size Guide</a>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {product.sizes.map(size => (
+                <button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  className={`min-w-[3rem] px-4 py-2 rounded-xl text-sm font-bold border transition-all ${selectedSize === size ? 'border-black bg-black text-white shadow-md' : 'border-gray-300 bg-white/50 text-gray-700 hover:border-black'}`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <button 
+              onClick={() => onAddToCart(product, selectedSize, selectedColor.name)}
+              className="w-full glass-dark py-5 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] shadow-xl transition-all"
+            >
+              ADD TO CART - {formatPrice(product.price)}
+            </button>
+            <p className="text-center text-xs text-gray-500 mt-4 tracking-wide">Free shipping on orders over {formatPrice(20000)}</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
