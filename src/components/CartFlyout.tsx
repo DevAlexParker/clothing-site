@@ -74,43 +74,10 @@ export default function CartFlyout({
     return Object.keys(errors).length === 0;
   };
 
-  const handleProceedToPayment = async () => {
+  const handleProceedToPayment = () => {
     if (!validateShipping()) return;
-
-    setIsSubmitting(true);
-    const newOrderId = `AURA-${Math.floor(Math.random() * 1000000)}`;
-
-    try {
-      await createOrder({
-        orderId: newOrderId,
-        customerInfo: {
-          fullName: shippingInfo.fullName,
-          email: shippingInfo.email,
-          addressLine1: shippingInfo.address,   // Map 'address' → 'addressLine1' for the API
-          city: shippingInfo.city,
-          postalCode: shippingInfo.postalCode,
-        },
-        items: cart.map(item => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          productImage: item.product.images[0],
-          productPrice: item.product.price,
-          quantity: item.quantity,
-          selectedSize: item.selectedSize,
-          selectedColor: item.selectedColor,
-        })),
-        totalAmount: cartTotal,
-      });
-
-      setOrderId(newOrderId);
-      clearCart();
-      setCheckoutStep('success');
-    } catch (error) {
-      console.error('Failed to place order:', error);
-      alert('Failed to place order. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Navigate to the full-page Stripe checkout
+    onCheckout(shippingInfo);
   };
 
   const updateField = (field: keyof ShippingInfo, value: string) => {
@@ -275,15 +242,12 @@ export default function CartFlyout({
                   handleProceedToPayment();
                 }
               }}
-              disabled={isSubmitting}
               className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-center px-8 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>
-                {isSubmitting 
-                  ? 'PLACING ORDER...' 
-                  : checkoutStep === 'cart' 
-                    ? 'PROCEED TO CHECKOUT' 
-                    : `PAY ${formatPrice(cartTotal)}`}
+                {checkoutStep === 'cart' 
+                  ? 'PROCEED TO CHECKOUT' 
+                  : 'CONTINUE TO PAYMENT'}
               </span>
             </button>
             {checkoutStep !== 'cart' && (

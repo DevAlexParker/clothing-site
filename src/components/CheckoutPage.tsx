@@ -4,6 +4,7 @@ import type { StripeCardNumberElementChangeEvent } from '@stripe/stripe-js';
 import { stripePromise, stripeAppearance } from '../stripeConfig';
 import type { Product } from '../data';
 import { formatPrice } from '../data';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CartItem {
   product: Product;
@@ -27,10 +28,10 @@ interface CheckoutPageProps {
   onBack: () => void;
 }
 
-/* ─── inner form (needs Stripe context) ─── */
 function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: CheckoutPageProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -38,11 +39,45 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
   const [cardBrand, setCardBrand] = useState<string>('unknown');
   const [orderNumber] = useState(() => `AURA-${Math.floor(100000 + Math.random() * 900000)}`);
   const [mounted, setMounted] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'cod'>('stripe');
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
     setMounted(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+
+    if (paymentMethod === 'stripe' && cart.length > 0) {
+      initializePayment();
+    }
+  }, [cart, shippingInfo, API_URL, paymentMethod]);
+
+  const initializePayment = async () => {
+    try {
+      const response = await fetch(`${API_URL}/payments/create-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            productId: item.product.id,
+            productPrice: item.product.price,
+            quantity: item.quantity
+          })),
+          customerInfo: shippingInfo
+        }),
+      });
+      const data = await response.json();
+      if (data.clientSecret) {
+        setClientSecret(data.clientSecret);
+      } else {
+        setPaymentError('Failed to initialize payment gateway.');
+      }
+    } catch (err) {
+      console.error('Payment Init Error:', err);
+      setPaymentError('Could not connect to the payment server.');
+    }
+  };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
@@ -54,48 +89,86 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
-
     setIsProcessing(true);
     setPaymentError(null);
 
     try {
-      const cardElement = elements.getElement(CardNumberElement);
-      if (!cardElement) throw new Error('Card element not found');
+      let finalPaymentStatus: 'paid' | 'pending' = 'pending';
+      let finalPaymentIntentId = '';
 
-      // Create a payment method to validate the card details
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          name: shippingInfo.fullName,
-          email: shippingInfo.email,
-          address: {
-            line1: shippingInfo.address,
-            city: shippingInfo.city,
-            postal_code: shippingInfo.postalCode,
+      if (paymentMethod === 'stripe') {
+        if (!stripe || !elements || !clientSecret) return;
+        const cardElement = elements.getElement(CardNumberElement);
+        if (!cardElement) throw new Error('Card element not found');
+
+        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: shippingInfo.fullName,
+              email: shippingInfo.email,
+              address: {
+                line1: shippingInfo.address,
+                city: shippingInfo.city,
+                postal_code: shippingInfo.postalCode,
+              },
+            },
           },
-        },
-      });
+        });
 
-      if (error) {
-        setPaymentError(error.message ?? 'Payment failed. Please try again.');
-        setIsProcessing(false);
-        return;
+        if (error) {
+          setPaymentError(error.message ?? 'Payment failed. Please try again.');
+          setIsProcessing(false);
+          return;
+        }
+
+        if (paymentIntent?.status === 'succeeded') {
+          finalPaymentStatus = 'paid';
+          finalPaymentIntentId = paymentIntent.id;
+        }
       }
 
-      // Payment method created successfully
-      console.log('Payment method created:', paymentMethod.id);
+      // Persist order to database
+      const orderData = {
+        orderId: orderNumber,
+        userId: user?.id,
+        customerInfo: {
+          fullName: shippingInfo.fullName,
+          email: shippingInfo.email,
+          addressLine1: shippingInfo.address,
+          city: shippingInfo.city,
+          postalCode: shippingInfo.postalCode,
+        },
+        items: cart.map(item => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          productImage: item.product.images[0],
+          productPrice: item.product.price,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize,
+          selectedColor: item.selectedColor,
+        })),
+        totalAmount: cartTotal,
+        paymentMethod,
+        paymentStatus: finalPaymentStatus,
+        paymentIntentId: finalPaymentIntentId
+      };
 
-      // Simulate a short processing delay for UX
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await fetch(`${API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Order could not be saved to our database.');
+      }
 
       setIsComplete(true);
-
-      // Auto-redirect after showing success
       setTimeout(() => {
         onPaymentSuccess();
       }, 4000);
+      
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       setIsProcessing(false);
@@ -216,71 +289,104 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
 
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-bold tracking-widest uppercase text-gray-900">Payment Details</h3>
+                    <h3 className="text-sm font-bold tracking-widest uppercase text-gray-900">Payment Method</h3>
                     <div className="flex items-center gap-2">
                       <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-xs text-gray-500 font-medium">Secured by Stripe</span>
+                      <span className="text-xs text-gray-500 font-medium">Secure Checkout</span>
                     </div>
                   </div>
 
-                  {/* Card Preview */}
-                  <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white relative overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-                    <div className="absolute top-0 right-0 w-60 h-60 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-10">
-                        <div className="w-10 h-7 rounded bg-gradient-to-br from-yellow-300 to-yellow-500 opacity-80" />
-                        <span className="text-xs font-medium opacity-60 tracking-wider">{brandIcons[cardBrand]}</span>
+                  {/* Payment Method Selector */}
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('stripe')}
+                      className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'stripe' ? 'border-black bg-black/5' : 'border-gray-100 hover:border-gray-200'}`}
+                    >
+                      <span className="text-xl">💳</span>
+                      <span className="text-[10px] font-bold tracking-widest uppercase">Pay with Card</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cod')}
+                      className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'cod' ? 'border-black bg-black/5' : 'border-gray-100 hover:border-gray-200'}`}
+                    >
+                      <span className="text-xl">🚚</span>
+                      <span className="text-[10px] font-bold tracking-widest uppercase">Cash on Delivery</span>
+                    </button>
+                  </div>
+
+                  {/* Card UI (only for Stripe) */}
+                  {paymentMethod === 'stripe' ? (
+                    <div className="animate-fade-in space-y-6">
+                      {/* Card Preview */}
+                      <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white relative overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+                        <div className="absolute top-0 right-0 w-60 h-60 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+                        <div className="relative z-10">
+                          <div className="flex justify-between items-start mb-10">
+                            <div className="w-10 h-7 rounded bg-gradient-to-br from-yellow-300 to-yellow-500 opacity-80" />
+                            <span className="text-xs font-medium opacity-60 tracking-wider">{brandIcons[cardBrand]}</span>
+                          </div>
+                          <div className="text-lg font-mono tracking-[0.25em] opacity-70 mb-6">•••• •••• •••• ••••</div>
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">Card Holder</p>
+                              <p className="text-sm font-medium tracking-wide">{shippingInfo.fullName || 'YOUR NAME'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">Expires</p>
+                              <p className="text-sm font-mono">••/••</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-lg font-mono tracking-[0.25em] opacity-70 mb-6">•••• •••• •••• ••••</div>
-                      <div className="flex justify-between items-end">
+
+                      {/* Stripe Elements */}
+                      <div className="space-y-5">
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">Card Holder</p>
-                          <p className="text-sm font-medium tracking-wide">{shippingInfo.fullName || 'YOUR NAME'}</p>
+                          <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
+                            Card Number
+                          </label>
+                          <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
+                            <CardNumberElement
+                              options={elementOptions}
+                              onChange={handleCardChange}
+                            />
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">Expires</p>
-                          <p className="text-sm font-mono">••/••</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Stripe Elements */}
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
-                        Card Number
-                      </label>
-                      <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
-                        <CardNumberElement
-                          options={elementOptions}
-                          onChange={handleCardChange}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
-                          Expiry Date
-                        </label>
-                        <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
-                          <CardExpiryElement options={elementOptions} />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
-                          CVC
-                        </label>
-                        <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
-                          <CardCvcElement options={elementOptions} />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
+                              Expiry Date
+                            </label>
+                            <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
+                              <CardExpiryElement options={elementOptions} />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-500 mb-2">
+                              CVC
+                            </label>
+                            <div className="stripe-element-wrapper glass-panel px-4 py-3.5 rounded-xl transition-all focus-within:ring-2 focus-within:ring-black/20 focus-within:bg-white/90">
+                              <CardCvcElement options={elementOptions} />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="animate-fade-in py-10 text-center glass-panel rounded-2xl border-dashed border-2 border-black/10">
+                      <div className="text-4xl mb-4">🚚</div>
+                      <h4 className="font-bold text-gray-900 mb-2">Cash on Delivery</h4>
+                      <p className="text-xs text-gray-500 max-w-xs mx-auto px-4">
+                        Pay in cash when your order is delivered to your doorstep. Please ensure someone is available at the shipping address to receive the package.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Error */}
                   {paymentError && (

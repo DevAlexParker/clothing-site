@@ -23,6 +23,15 @@ export interface IOrder extends Document {
   };
   items: IOrderItem[];
   totalAmount: number;
+  paymentIntentId?: string;
+  paymentStatus: 'pending' | 'paid' | 'failed';
+  paymentMethod: 'stripe' | 'cod';
+  userId?: string;
+  trackingHistory: {
+    status: string;
+    message: string;
+    timestamp: Date;
+  }[];
 }
 
 const OrderItemSchema = new Schema<IOrderItem>({
@@ -37,11 +46,28 @@ const OrderItemSchema = new Schema<IOrderItem>({
 
 const OrderSchema = new Schema<IOrder>({
   orderId: { type: String, required: true, unique: true },
+  userId: { type: Schema.Types.ObjectId, ref: 'User' },
   status: {
     type: String,
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     default: 'Pending',
   },
+  paymentMethod: {
+    type: String,
+    enum: ['stripe', 'cod'],
+    default: 'stripe',
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending',
+  },
+  paymentIntentId: { type: String },
+  trackingHistory: [{
+    status: { type: String, required: true },
+    message: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+  }],
   customerInfo: {
     fullName: { type: String, required: true },
     email: { type: String, required: true },

@@ -5,9 +5,11 @@ import CartFlyout from './components/CartFlyout';
 import type { ShippingInfo } from './components/CartFlyout';
 import PDPModal from './components/PDPModal';
 import CheckoutPage from './components/CheckoutPage';
+import AuthModals from './components/AuthModals';
 import Home from './pages/Home';
 import Collections from './pages/Collections';
 import About from './pages/About';
+import Account from './pages/Account';
 
 interface CartItem {
   product: Product;
@@ -22,6 +24,10 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [shippingInfo, setShippingInfo] = useState<ShippingInfo | null>(null);
+  const [authModal, setAuthModal] = useState<{isOpen: boolean, type: 'login' | 'signup'}>({
+    isOpen: false,
+    type: 'login'
+  });
 
   const navigate = (page: string) => {
     setCurrentPage(page);
@@ -95,6 +101,7 @@ export default function App() {
       <Navbar 
         cartItemCount={cart.reduce((sum, item) => sum + item.quantity, 0)} 
         onOpenCart={() => setIsCartOpen(true)}
+        onOpenAuth={(type) => setAuthModal({ isOpen: true, type })}
         currentPage={currentPage}
         navigate={navigate}
       />
@@ -104,6 +111,7 @@ export default function App() {
         {currentPage === 'collections' && <Collections onProductClick={setSelectedProduct} initialFilter="all" />}
         {currentPage === 'new-arrivals' && <Collections key="new-arrivals" onProductClick={setSelectedProduct} initialFilter="new-arrivals" />}
         {currentPage === 'about' && <About />}
+        {currentPage === 'account' && <Account />}
         {currentPage === 'checkout' && shippingInfo && (
           <CheckoutPage
             cart={cart}
@@ -113,6 +121,13 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Auth Modals */}
+      <AuthModals 
+        isOpen={authModal.isOpen} 
+        initialType={authModal.type} 
+        onClose={() => setAuthModal({ ...authModal, isOpen: false })} 
+      />
 
       {currentPage !== 'checkout' && (
         <footer className="w-full border-t border-gray-200/50 pt-16 pb-8 relative z-10 bg-white/30 backdrop-blur-sm mt-auto">
