@@ -9,6 +9,14 @@ interface CartItem {
   selectedColor: string;
 }
 
+export interface ShippingInfo {
+  fullName: string;
+  email: string;
+  address: string;
+  city: string;
+  postalCode: string;
+}
+
 interface CartFlyoutProps {
   isOpen: boolean;
   onClose: () => void;
@@ -16,10 +24,19 @@ interface CartFlyoutProps {
   updateQuantity: (id: string, size: string, color: string, qty: number) => void;
   removeItem: (id: string, size: string, color: string) => void;
   clearCart: () => void;
+  onCheckout: (shippingInfo: ShippingInfo) => void;
 }
 
-export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart }: CartFlyoutProps) {
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'payment' | 'success'>('cart');
+export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart, onCheckout }: CartFlyoutProps) {
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'success'>('cart');
+  const [shippingInfo, setShippingInfo] = useState<ShippingInfo>({
+    fullName: '',
+    email: '',
+    address: '',
+    city: '',
+    postalCode: '',
+  });
+  const [shippingErrors, setShippingErrors] = useState<Partial<ShippingInfo>>({});
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
   if (!isOpen) return null;
@@ -32,6 +49,35 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
   const handleCheckoutComplete = () => {
     clearCart();
     setCheckoutStep('success');
+  };
+
+  const validateShipping = (): boolean => {
+    const errors: Partial<ShippingInfo> = {};
+    if (!shippingInfo.fullName.trim()) errors.fullName = 'Required';
+    if (!shippingInfo.email.trim()) errors.email = 'Required';
+    else if (!/\S+@\S+\.\S+/.test(shippingInfo.email)) errors.email = 'Invalid email';
+    if (!shippingInfo.address.trim()) errors.address = 'Required';
+    if (!shippingInfo.city.trim()) errors.city = 'Required';
+    if (!shippingInfo.postalCode.trim()) errors.postalCode = 'Required';
+    setShippingErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleProceedToPayment = () => {
+    if (!validateShipping()) return;
+    // Close the flyout and open the full checkout page
+    onCheckout(shippingInfo);
+  };
+
+  const updateField = (field: keyof ShippingInfo, value: string) => {
+    setShippingInfo(prev => ({ ...prev, [field]: value }));
+    if (shippingErrors[field]) {
+      setShippingErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   return (
@@ -96,42 +142,68 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
           ) : checkoutStep === 'shipping' ? (
             <div className="space-y-4 animate-fade-in">
               <h3 className="font-bold text-gray-800 mb-4">Shipping Details</h3>
-              <input type="text" placeholder="Full Name" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-              <input type="email" placeholder="Email Address" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-              <input type="text" placeholder="Address line 1" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+              <div>
+                <input
+                  type="text"
+                  placeholder="Full Name"
+                  value={shippingInfo.fullName}
+                  onChange={(e) => updateField('fullName', e.target.value)}
+                  className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.fullName ? 'ring-2 ring-red-400' : ''}`}
+                />
+                {shippingErrors.fullName && <p className="text-red-500 text-xs mt-1 ml-2">{shippingErrors.fullName}</p>}
+              </div>
+              <div>
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={shippingInfo.email}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.email ? 'ring-2 ring-red-400' : ''}`}
+                />
+                {shippingErrors.email && <p className="text-red-500 text-xs mt-1 ml-2">{shippingErrors.email}</p>}
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Address line 1"
+                  value={shippingInfo.address}
+                  onChange={(e) => updateField('address', e.target.value)}
+                  className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.address ? 'ring-2 ring-red-400' : ''}`}
+                />
+                {shippingErrors.address && <p className="text-red-500 text-xs mt-1 ml-2">{shippingErrors.address}</p>}
+              </div>
               <div className="flex gap-4">
-                <input type="text" placeholder="City" className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-                <input type="text" placeholder="Postal Code" className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 animate-fade-in">
-              <h3 className="font-bold text-gray-800 mb-4">Payment Info</h3>
-              <div className="glass-panel p-5 rounded-2xl space-y-5 bg-gradient-to-br from-white/60 to-white/30 border-white/60 shadow-[0_8px_32px_rgba(0,0,0,0.1)] relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-black/5 to-transparent pointer-events-none" />
-                <div className="flex justify-between items-center mb-2">
-                  <div className="w-10 h-6 bg-gray-200/50 rounded flex items-center justify-center border border-white/50">
-                    <span className="text-[10px] font-bold text-gray-500">VISA</span>
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="w-6 h-6 rounded-full bg-red-400/80 mix-blend-multiply"></div>
-                    <div className="w-6 h-6 rounded-full bg-yellow-400/80 mix-blend-multiply -ml-3"></div>
-                  </div>
+                <div className="w-1/2">
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={shippingInfo.city}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.city ? 'ring-2 ring-red-400' : ''}`}
+                  />
+                  {shippingErrors.city && <p className="text-red-500 text-xs mt-1 ml-2">{shippingErrors.city}</p>}
                 </div>
-                <input type="text" placeholder="Card Number 0000 0000 0000 0000" className="w-full bg-transparent px-2 py-1 text-lg font-mono tracking-widest placeholder-gray-400/70 border-b border-gray-300/30 outline-none focus:border-black/30" />
-                <div className="flex gap-4 mt-4">
-                  <div className="w-1/2">
-                    <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-1 block pl-2">Expiry</span>
-                    <input type="text" placeholder="MM/YY" className="w-full bg-transparent px-2 py-1 text-sm font-mono placeholder-gray-400/70 border-b border-gray-300/30 outline-none focus:border-black/30" />
-                  </div>
-                  <div className="w-1/2">
-                    <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-1 block pl-2">CVC</span>
-                    <input type="text" placeholder="***" className="w-full bg-transparent px-2 py-1 text-sm font-mono placeholder-gray-400/70 border-b border-gray-300/30 outline-none focus:border-black/30" />
-                  </div>
+                <div className="w-1/2">
+                  <input
+                    type="text"
+                    placeholder="Postal Code"
+                    value={shippingInfo.postalCode}
+                    onChange={(e) => updateField('postalCode', e.target.value)}
+                    className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.postalCode ? 'ring-2 ring-red-400' : ''}`}
+                  />
+                  {shippingErrors.postalCode && <p className="text-red-500 text-xs mt-1 ml-2">{shippingErrors.postalCode}</p>}
                 </div>
               </div>
+
+              {/* Stripe badge */}
+              <div className="flex items-center justify-center gap-2 pt-4">
+                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+                <span className="text-xs text-gray-400">You'll pay securely via <span className="font-semibold text-[#635BFF]">Stripe</span> on the next step</span>
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         {cart.length > 0 && checkoutStep !== 'success' && (
@@ -151,20 +223,25 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
             <button 
               onClick={() => {
                 if (checkoutStep === 'cart') setCheckoutStep('shipping');
-                else if (checkoutStep === 'shipping') setCheckoutStep('payment');
-                else handleCheckoutComplete();
+                else if (checkoutStep === 'shipping') handleProceedToPayment();
               }}
-              className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-center px-8 shadow-xl"
+              className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-center items-center gap-2 px-8 shadow-xl"
             >
-              <span>
-                {checkoutStep === 'cart' ? 'PROCEED TO CHECKOUT' : checkoutStep === 'shipping' ? 'CONTINUE TO PAYMENT' : `PAY ${formatPrice(cartTotal)}`}
-              </span>
+              {checkoutStep === 'cart' ? (
+                <span>PROCEED TO CHECKOUT</span>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>CONTINUE TO PAYMENT</span>
+                </>
+              )}
             </button>
             {checkoutStep !== 'cart' && (
               <button 
                 onClick={() => {
                   if (checkoutStep === 'shipping') setCheckoutStep('cart');
-                  if (checkoutStep === 'payment') setCheckoutStep('shipping');
                 }}
                 className="w-full mt-3 py-2 text-xs font-bold text-gray-500 hover:text-black tracking-widest"
               >

@@ -42,3 +42,66 @@
   width: 0px;
   background: transparent;
 }
+
+/* ─── Checkout Animations ─── */
+@keyframes checkout-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@keyframes checkout-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes checkout-success-bounce {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes checkout-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.checkout-success-icon {
+  animation: checkout-success-bounce 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+}
+
+.checkout-success-card {
+  animation: checkout-fade-up 0.5s ease-out 0.2s both;
+}
+
+/* Stripe Element wrapper focus glow */
+.stripe-element-wrapper {
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.stripe-element-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Smooth slide-in for cart flyout */
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Fade in for step transitions */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
