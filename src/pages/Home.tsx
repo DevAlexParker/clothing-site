@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import type { Product } from '../data';
-import { products } from '../data';
+import { fetchProducts } from '../lib/api';
 import ProductCard from '../components/ProductCard';
 
 interface HomeProps {
@@ -8,6 +9,16 @@ interface HomeProps {
 }
 
 export default function Home({ onProductClick, navigate }: HomeProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts()
+      .then(data => setProducts(data))
+      .catch(err => console.error('Failed to load products:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
   const featuredProducts = products.slice(0, 8);
 
   return (
@@ -43,11 +54,23 @@ export default function Home({ onProductClick, navigate }: HomeProps) {
             View All
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {featuredProducts.map(product => (
-            <ProductCard key={product.id} product={product} onClick={onProductClick} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
+                <div className="h-80 rounded-2xl bg-gray-200 mb-6"></div>
+                <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {featuredProducts.map(product => (
+              <ProductCard key={product.id} product={product} onClick={onProductClick} />
+            ))}
+          </div>
+        )}
       </section>
       
       {/* Secondary Hero Image / Banner */}

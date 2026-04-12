@@ -1,6 +1,7 @@
 import type { Product } from '../data';
 import { formatPrice } from '../data';
 import { useState } from 'react';
+import { createOrder } from '../lib/api';
 
 interface CartItem {
   product: Product;
@@ -20,6 +21,15 @@ interface CartFlyoutProps {
 
 export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, removeItem, clearCart }: CartFlyoutProps) {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'payment' | 'success'>('cart');
+  const [customerInfo, setCustomerInfo] = useState({
+    fullName: '',
+    email: '',
+    addressLine1: '',
+    city: '',
+    postalCode: ''
+  });
+  const [orderId, setOrderId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
   if (!isOpen) return null;
@@ -29,9 +39,35 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
     setTimeout(() => setCheckoutStep('cart'), 300);
   };
 
-  const handleCheckoutComplete = () => {
-    clearCart();
-    setCheckoutStep('success');
+  const handleCheckoutComplete = async () => {
+    setIsSubmitting(true);
+    const newOrderId = `AURA-${Math.floor(Math.random() * 1000000)}`;
+    
+    try {
+      await createOrder({
+        orderId: newOrderId,
+        customerInfo,
+        items: cart.map(item => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          productImage: item.product.images[0],
+          productPrice: item.product.price,
+          quantity: item.quantity,
+          selectedSize: item.selectedSize,
+          selectedColor: item.selectedColor,
+        })),
+        totalAmount: cartTotal,
+      });
+      
+      setOrderId(newOrderId);
+      clearCart();
+      setCheckoutStep('success');
+    } catch (error) {
+      console.error('Failed to place order:', error);
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -54,7 +90,7 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
               <p className="text-gray-500 mb-2">Thank you for your purchase.</p>
               <div className="glass-panel px-6 py-3 rounded-xl mb-6">
                 <span className="text-sm font-medium text-gray-400">Order Number</span>
-                <p className="text-lg font-mono font-bold text-gray-800">#AURA-{Math.floor(Math.random() * 1000000)}</p>
+                <p className="text-lg font-mono font-bold text-gray-800">#{orderId}</p>
               </div>
               <button onClick={handleClose} className="glass-dark mt-4 px-8 py-3 rounded-full text-sm font-bold tracking-wider w-full">CONTINUE SHOPPING</button>
             </div>
@@ -96,12 +132,12 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
           ) : checkoutStep === 'shipping' ? (
             <div className="space-y-4 animate-fade-in">
               <h3 className="font-bold text-gray-800 mb-4">Shipping Details</h3>
-              <input type="text" placeholder="Full Name" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-              <input type="email" placeholder="Email Address" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-              <input type="text" placeholder="Address line 1" className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+              <input type="text" placeholder="Full Name" value={customerInfo.fullName} onChange={e => setCustomerInfo({...customerInfo, fullName: e.target.value})} className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+              <input type="email" placeholder="Email Address" value={customerInfo.email} onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})} className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+              <input type="text" placeholder="Address line 1" value={customerInfo.addressLine1} onChange={e => setCustomerInfo({...customerInfo, addressLine1: e.target.value})} className="w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
               <div className="flex gap-4">
-                <input type="text" placeholder="City" className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
-                <input type="text" placeholder="Postal Code" className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+                <input type="text" placeholder="City" value={customerInfo.city} onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})} className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
+                <input type="text" placeholder="Postal Code" value={customerInfo.postalCode} onChange={e => setCustomerInfo({...customerInfo, postalCode: e.target.value})} className="w-1/2 glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all" />
               </div>
             </div>
           ) : (
@@ -154,10 +190,11 @@ export default function CartFlyout({ isOpen, onClose, cart, updateQuantity, remo
                 else if (checkoutStep === 'shipping') setCheckoutStep('payment');
                 else handleCheckoutComplete();
               }}
-              className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-center px-8 shadow-xl"
+              disabled={isSubmitting}
+              className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] transition-all flex justify-center px-8 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>
-                {checkoutStep === 'cart' ? 'PROCEED TO CHECKOUT' : checkoutStep === 'shipping' ? 'CONTINUE TO PAYMENT' : `PAY ${formatPrice(cartTotal)}`}
+                {isSubmitting ? 'PLACING ORDER...' : checkoutStep === 'cart' ? 'PROCEED TO CHECKOUT' : checkoutStep === 'shipping' ? 'CONTINUE TO PAYMENT' : `PAY ${formatPrice(cartTotal)}`}
               </span>
             </button>
             {checkoutStep !== 'cart' && (

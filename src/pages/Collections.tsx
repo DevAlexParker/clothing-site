@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Product } from '../data';
-import { products, formatPrice } from '../data';
+import { formatPrice } from '../data';
+import { fetchProducts } from '../lib/api';
 import ProductCard from '../components/ProductCard';
 
 interface CollectionsProps {
@@ -11,11 +12,20 @@ interface CollectionsProps {
 type PriceRange = 'all' | 'under10k' | '10k-20k' | 'over20k';
 
 export default function Collections({ onProductClick, initialFilter = 'all' }: CollectionsProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState(initialFilter);
   const [priceFilter, setPriceFilter] = useState<PriceRange>('all');
   const [showFilters, setShowFilters] = useState(false);
   
   const categories = ['all', 'Outerwear', 'Dresses', 'Tailoring', 'Basics', 'Bottoms', 'Accessories', 'new-arrivals'];
+
+  useEffect(() => {
+    fetchProducts()
+      .then(data => setProducts(data))
+      .catch(err => console.error('Failed to load products:', err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
@@ -34,7 +44,7 @@ export default function Collections({ onProductClick, initialFilter = 'all' }: C
 
       return catMatch && priceMatch;
     });
-  }, [categoryFilter, priceFilter]);
+  }, [products, categoryFilter, priceFilter]);
 
   const clearFilters = () => {
     setCategoryFilter('all');
@@ -121,13 +131,25 @@ export default function Collections({ onProductClick, initialFilter = 'all' }: C
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
-        {filteredProducts.map(product => (
-          <ProductCard key={product.id} product={product} onClick={onProductClick} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
+              <div className="h-80 rounded-2xl bg-gray-200 mb-6"></div>
+              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+          {filteredProducts.map(product => (
+            <ProductCard key={product.id} product={product} onClick={onProductClick} />
+          ))}
+        </div>
+      )}
 
-      {filteredProducts.length === 0 && (
+      {!loading && filteredProducts.length === 0 && (
         <div className="py-20 text-center glass-panel rounded-3xl mt-8">
           <p className="text-gray-500 text-lg">No products found matching your filters.</p>
           <button onClick={clearFilters} className="mt-4 underline underline-offset-4 text-sm font-bold tracking-widest uppercase hover:text-gray-500">Clear All Filters</button>
