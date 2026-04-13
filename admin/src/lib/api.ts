@@ -28,6 +28,17 @@ export interface Order {
   totalAmount: number;
 }
 
+export interface AdminProduct {
+  id?: string;
+  name: string;
+  price: number;
+  category: string;
+  images: string[];
+  colors: { name: string; hex: string }[];
+  sizes: string[];
+  isNew?: boolean;
+}
+
 export async function fetchOrders(): Promise<Order[]> {
   const res = await fetch(`${API_BASE}/orders`);
   if (!res.ok) throw new Error('Failed to fetch orders');
@@ -42,6 +53,39 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   });
   if (!res.ok) throw new Error('Failed to update order status');
   return res.json();
+}
+
+export async function fetchProducts(): Promise<AdminProduct[]> {
+  const res = await fetch(`${API_BASE}/products`);
+  if (!res.ok) throw new Error('Failed to fetch products');
+  return res.json();
+}
+
+export async function createProduct(product: AdminProduct): Promise<AdminProduct> {
+  const res = await fetch(`${API_BASE}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(product),
+  });
+  if (!res.ok) throw new Error('Failed to create product');
+  return res.json();
+}
+
+export async function updateProduct(id: string, product: AdminProduct): Promise<AdminProduct> {
+  const res = await fetch(`${API_BASE}/products/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(product),
+  });
+  if (!res.ok) throw new Error('Failed to update product');
+  return res.json();
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete product');
 }
 
 export const formatPrice = (price: number) => {
