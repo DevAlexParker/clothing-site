@@ -35,10 +35,25 @@ const OutfitIntentSchema = z.object({
   })
 });
 
-// Helper: Dummy Embedding generator since we don't have an embedding API configured yet
-// In production, we'd use OpenAI embeddings endpoint.
-function getDummyVector() {
-  return Array.from({ length: 1536 }, () => (Math.random() * 2) - 1);
+// Helper: Generate real embeddings using OpenAI
+async function getRealEmbedding(text: string) {
+  if (!text) {
+    // Return a neutral zero-ish vector if no text provided
+    return Array.from({ length: 1536 }, () => 0);
+  }
+  
+  try {
+    const response = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+    });
+    return response.data[0].embedding;
+  } catch (e) {
+    console.error("Embedding Error:", e);
+    // Fallback to deterministic random if API fails
+    const safetyText = text || "";
+    return Array.from({ length: 1536 }, (_, i) => Math.sin(safetyText.length + i));
+  }
 }
 
 export async function processStylistRequest(userMessage: string, merchantId: string) {
@@ -50,6 +65,10 @@ export async function processStylistRequest(userMessage: string, merchantId: str
     messages: [
       { role: "system", content: `You are an expert personal stylist. Analyze the user's request and cleanly extract their constraints into JSON.
       
+      CRITICAL: You MUST provide semantic search strings for 'top', 'bottom', and 'shoes'. 
+      NEVER provide null or empty strings for these fields. 
+      If the user doesn't specify, use your expert fashion sense to suggest the best category.
+
       Schema:
       {
         "occasion": string,
@@ -80,23 +99,31 @@ export async function processStylistRequest(userMessage: string, merchantId: str
      return { intent, outfit: [], comment: "Pinecone disconnected" };
   }
 
+  const usedIds = new Set<string>();
+
   const findBestItem = async (queryStr: string) => {
+     if (!queryStr) return null;
+     
      try {
        const res = await index.query({
-         vector: getDummyVector(), 
-         topK: 1,
+         vector: await getRealEmbedding(queryStr), 
+         topK: 5, // Get more so we can filter duplicates
          includeMetadata: true,
          filter: { merchant_id: { $eq: merchantId } }
        });
        
-       const match = res.matches[0];
+       // Filter out already used items
+       const bestMatch = res.matches.find((m: any) => !usedIds.has(m.id));
+       const match = bestMatch || res.matches[0];
+       
        if (!match || !match.metadata) return null;
        
-       // CRITICAL: Fetch full validated product from MongoDB using the ID from Pinecone
-       // This prevents frontend crashes due to missing 'images' or 'id'
        const productId = match.metadata.id || match.id;
-       const fullProduct = await ProductModel.findById(productId);
-       return fullProduct || match.metadata;
+       usedIds.add(productId); // Ensure uniqueness
+
+       const fullProduct = await ProductModel.findById(productId).lean();
+       if (!fullProduct) return match.metadata;
+       return { ...fullProduct, id: fullProduct._id.toString() };
      } catch (e) {
        console.error("Pinecone Logic Error:", e);
        return null;
@@ -104,11 +131,9 @@ export async function processStylistRequest(userMessage: string, merchantId: str
   };
 
 
-  const [topMatch, bottomMatch, shoeMatch] = await Promise.all([
-    findBestItem(intent.queries.top),
-    findBestItem(intent.queries.bottom),
-    findBestItem(intent.queries.shoes)
-  ]);
+  const topMatch = await findBestItem(intent.queries.top);
+  const bottomMatch = await findBestItem(intent.queries.bottom);
+  const shoeMatch = await findBestItem(intent.queries.shoes);
 
   const rawOutfitItems: any[] = [topMatch, bottomMatch, shoeMatch].filter(Boolean);
 

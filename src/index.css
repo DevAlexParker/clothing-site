@@ -105,3 +105,31 @@
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* AI Markdown Content Styling */
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #111;
+}
+.markdown-content h3 {
+  font-size: 1.1rem;
+}
+.markdown-content ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+.markdown-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+.markdown-content strong {
+  font-weight: 700;
+  color: #000;
+}

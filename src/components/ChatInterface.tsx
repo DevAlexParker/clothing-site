@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Message } from '../lib/api';
 
 interface ChatInterfaceProps {
@@ -57,7 +59,15 @@ export default function ChatInterface({ messages, onSendMessage, isTyping }: Cha
                   : 'bg-white/80 text-gray-800 rounded-tl-none border border-gray-100'
               }`}
             >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              {msg.role === 'user' ? (
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              ) : (
+                <div className="markdown-content text-gray-800 space-y-2">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}

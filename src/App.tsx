@@ -37,23 +37,50 @@ export default function App() {
   };
 
   const handleAddToCart = (product: Product, size: string, color: string) => {
+    // Defensive: Normalize the product ID (could be .id or ._id depending on origin)
+    const pid = product.id || (product as any)._id || (product as any).productId;
+    console.log("🛒 Adding to Cart:", { pid, name: product.name, size, color });
+    
+    if (!pid) {
+      console.error("❌ Add to Cart failed: No product ID found", product);
+      return;
+    }
+
     setCart(prev => {
-      const existing = prev.find(item => 
-        item.product.id === product.id && 
+      // Find if item already exists in cart with same size/color
+      const existingIdx = prev.findIndex(item => 
+        (item.product.id === pid || (item.product as any)._id === pid) && 
         item.selectedSize === size && 
         item.selectedColor === color
       );
-      if (existing) {
-        return prev.map(item => 
-          item === existing 
-            ? { ...item, quantity: item.quantity + 1 } 
-            : item
-        );
+
+      if (existingIdx !== -1) {
+        // Increment quantity
+        const nextCart = [...prev];
+        nextCart[existingIdx] = {
+          ...nextCart[existingIdx],
+          quantity: nextCart[existingIdx].quantity + 1
+        };
+        return nextCart;
       }
-      return [...prev, { product, quantity: 1, selectedSize: size, selectedColor: color }];
+
+      // Add as new item
+      return [...prev, { 
+        product: { ...product, id: pid }, 
+        quantity: 1, 
+        selectedSize: size, 
+        selectedColor: color 
+      }];
     });
+
     setSelectedProduct(null);
     setIsCartOpen(true);
+    
+    // Safety Force: Scroll to top of cart list if it's too long
+    setTimeout(() => {
+      const cartContainer = document.querySelector('.overflow-y-auto');
+      if (cartContainer) cartContainer.scrollTop = 0;
+    }, 100);
   };
 
   const updateQuantity = (id: string, size: string, color: string, qty: number) => {
@@ -62,7 +89,7 @@ export default function App() {
       return;
     }
     setCart(prev => prev.map(item => 
-      (item.product.id === id && item.selectedSize === size && item.selectedColor === color)
+      ((item.product.id || (item.product as any)._id) === id && item.selectedSize === size && item.selectedColor === color)
         ? { ...item, quantity: qty }
         : item
     ));
@@ -114,7 +141,7 @@ export default function App() {
         {currentPage === 'new-arrivals' && <Collections key="new-arrivals" onProductClick={setSelectedProduct} initialFilter="new-arrivals" />}
         {currentPage === 'about' && <About />}
         {currentPage === 'account' && <Account />}
-        {currentPage === 'studio' && <StylistStudio />}
+        {currentPage === 'studio' && <StylistStudio onAddToCart={handleAddToCart} cart={cart} />}
 
         {currentPage === 'checkout' && shippingInfo && (
           <CheckoutPage

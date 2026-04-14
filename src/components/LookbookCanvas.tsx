@@ -5,9 +5,39 @@ import { formatPrice } from '../data';
 interface LookbookCanvasProps {
   products: Product[];
   intent?: StylistIntent;
+  onAddToCart: (product: Product, size: string, color: string) => void;
+  cart: any[];
 }
 
-export default function LookbookCanvas({ products, intent }: LookbookCanvasProps) {
+export default function LookbookCanvas({ products, intent, onAddToCart, cart }: LookbookCanvasProps) {
+  const [justAddedIdx, setJustAddedIdx] = React.useState<number | null>(null);
+
+  const isProductInCart = (product: Product) => {
+    const pid = product.id || (product as any)._id || (product as any).productId;
+    return cart.some(item => (item.product.id === pid || (item.product as any)._id === pid));
+  };
+
+  const handleAddAllToCart = () => {
+    if (products.length === 0) return;
+    
+    products.forEach((p, idx) => {
+      const size = (p.sizes && p.sizes.length > 0) ? p.sizes[0] : 'M';
+      const color = (p.colors && p.colors.length > 0) ? p.colors[0].name : 'Standard';
+      onAddToCart(p, size, color);
+    });
+    
+    setJustAddedIdx(-1); // special value for all
+    setTimeout(() => setJustAddedIdx(null), 3000);
+  };
+
+  const handleSingleAdd = (product: Product, idx: number) => {
+    const size = (product.sizes && product.sizes.length > 0) ? product.sizes[0] : 'M';
+    const color = (product.colors && product.colors.length > 0) ? product.colors[0].name : 'Standard';
+    onAddToCart(product, size, color);
+    setJustAddedIdx(idx);
+    setTimeout(() => setJustAddedIdx(null), 3000);
+  };
+
   if (products.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-6">
@@ -37,7 +67,7 @@ export default function LookbookCanvas({ products, intent }: LookbookCanvasProps
           </div>
           {intent.budget && (
              <div className="glass-panel px-4 py-2 rounded-full text-[10px] font-bold tracking-widest uppercase border border-black/5">
-               Budget: Under Rs. {intent.budget}
+               Budget: Under {formatPrice(intent.budget)}
              </div>
           )}
         </div>
@@ -60,8 +90,15 @@ export default function LookbookCanvas({ products, intent }: LookbookCanvasProps
                <h4 className="text-lg font-bold tracking-tight">{item.name}</h4>
                <div className="flex justify-between items-center mt-4">
                  <p className="text-sm font-light opacity-90">{formatPrice(item.price)}</p>
-                 <button className="text-[9px] font-black tracking-widest uppercase bg-white text-black px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors">
-                   ADD TO LOOK
+                 <button 
+                   onClick={() => handleSingleAdd(item, idx)}
+                   className={`text-[9px] font-black tracking-widest uppercase px-4 py-2 rounded-full transition-all duration-300 ${
+                     justAddedIdx === idx || isProductInCart(item)
+                       ? 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                       : 'bg-white text-black hover:bg-black hover:text-white'
+                   }`}
+                 >
+                   {justAddedIdx === idx ? 'ADDED ✓' : isProductInCart(item) ? 'IN CART' : 'ADD TO CART'}
                  </button>
                </div>
             </div>
@@ -85,9 +122,37 @@ export default function LookbookCanvas({ products, intent }: LookbookCanvasProps
              <p className="text-xl font-black">{formatPrice(products.reduce((sum, p) => sum + p.price, 0))}</p>
            </div>
         </div>
-        <button className="w-full glass-dark py-5 rounded-full text-xs font-black tracking-[0.2em] shadow-xl hover:scale-[1.03] transition-all">
-          ADD OUTFIT TO CART
-        </button>
+        
+        <div className="flex flex-col gap-4">
+          <button 
+            onClick={handleAddAllToCart}
+            className={`w-full py-5 rounded-full text-xs font-black tracking-[0.2em] shadow-xl hover:scale-[1.03] transition-all flex items-center justify-center gap-2 ${
+              justAddedIdx === -1 || products.every(p => isProductInCart(p))
+                ? 'bg-green-600 text-white' 
+                : 'glass-dark'
+            }`}
+          >
+            {justAddedIdx === -1 ? 'OUTFIT ADDED ✓' : products.every(p => isProductInCart(p)) ? 'OUTFIT IN CART' : 'ADD OUTFIT TO CART'}
+          </button>
+
+          {(justAddedIdx === -1 || products.some(isProductInCart)) && (
+            <button 
+              onClick={() => {
+                const cartBtn = document.querySelector('[aria-label="Open cart"]') as HTMLButtonElement || document.querySelector('.navbar-cart-btn') as HTMLButtonElement;
+                if (cartBtn) {
+                  cartBtn.click();
+                } else {
+                  const allButtons = Array.from(document.querySelectorAll('button'));
+                  const foundBtn = allButtons.find(b => b.innerText.toLowerCase().includes('cart') || b.querySelector('svg'));
+                  if (foundBtn) foundBtn.click();
+                }
+              }}
+              className="w-full py-4 rounded-full text-[10px] font-black tracking-[0.2em] bg-black text-white hover:bg-gray-800 transition-all animate-bounce shadow-2xl"
+            >
+              PROCEED TO CHECKOUT →
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

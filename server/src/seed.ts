@@ -13,7 +13,7 @@ const products = [
     category: 'Outerwear',
     isNewArrival: true,
     images: [
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1550639524-a6f58345a278?auto=format&fit=crop&q=80&w=800'
     ],
     colors: [

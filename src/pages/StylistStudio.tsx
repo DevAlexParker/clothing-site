@@ -3,7 +3,12 @@ import ChatInterface from '../components/ChatInterface';
 import LookbookCanvas from '../components/LookbookCanvas';
 import type { Message, Product, StylistIntent } from '../lib/api';
 
-export default function StylistStudio() {
+interface StylistStudioProps {
+  onAddToCart: (product: Product, size: string, color: string) => void;
+  cart: any[];
+}
+
+export default function StylistStudio({ onAddToCart, cart }: StylistStudioProps) {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'stylist', content: "Hi! I am your personal AI stylist. What occasion are we shopping for today?" }
   ]);
@@ -87,6 +92,8 @@ export default function StylistStudio() {
           <LookbookCanvas 
             products={suggestedProducts} 
             intent={currentIntent}
+            onAddToCart={onAddToCart}
+            cart={cart}
           />
         </div>
       </div>
