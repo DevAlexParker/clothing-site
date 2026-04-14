@@ -18,7 +18,7 @@ interface Order {
 }
 
 export default function Account() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -27,7 +27,7 @@ export default function Account() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let intervalId: ReturnType<typeof setInterval>;
 
     if (user && activeTab === 'orders') {
       fetchUserOrders(); // Initial fetch

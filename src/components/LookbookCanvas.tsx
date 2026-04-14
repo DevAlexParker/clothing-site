@@ -20,7 +20,7 @@ export default function LookbookCanvas({ products, intent, onAddToCart, cart }: 
   const handleAddAllToCart = () => {
     if (products.length === 0) return;
     
-    products.forEach((p, idx) => {
+    products.forEach((p) => {
       const size = (p.sizes && p.sizes.length > 0) ? p.sizes[0] : 'M';
       const color = (p.colors && p.colors.length > 0) ? p.colors[0].name : 'Standard';
       onAddToCart(p, size, color);

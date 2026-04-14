@@ -1,7 +1,6 @@
 import type { Product } from '../data';
 import { formatPrice } from '../data';
 import { useState } from 'react';
-import { createOrder } from '../lib/api';
 
 interface CartItem {
   product: Product;
@@ -34,7 +33,6 @@ export default function CartFlyout({
   cart,
   updateQuantity,
   removeItem,
-  clearCart,
   onCheckout
 }: CartFlyoutProps) {
 
@@ -49,8 +47,7 @@ export default function CartFlyout({
   });
 
   const [shippingErrors, setShippingErrors] = useState<Partial<ShippingInfo>>({});
-  const [orderId, setOrderId] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderId] = useState('');
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 

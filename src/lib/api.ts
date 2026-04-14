@@ -18,6 +18,8 @@ export interface Product {
   images: string[];
   colors: { name: string; hex: string }[];
   sizes: string[];
+  isNew?: boolean;
+  isNewArrival?: boolean;
 }
 
 export interface OrderItem {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import ChatInterface from '../components/ChatInterface';
 import LookbookCanvas from '../components/LookbookCanvas';
 import type { Message, Product, StylistIntent } from '../lib/api';
