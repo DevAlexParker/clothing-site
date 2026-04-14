@@ -7,7 +7,8 @@ export interface IProduct extends Document {
   images: string[];
   colors: { name: string; hex: string }[];
   sizes: string[];
-  isNew?: boolean;
+  isNewArrival?: boolean;
+  merchant_id?: mongoose.Types.ObjectId;
 }
 
 const ProductSchema = new Schema<IProduct>({
@@ -20,7 +21,8 @@ const ProductSchema = new Schema<IProduct>({
     hex: { type: String, required: true },
   }],
   sizes: [{ type: String }],
-  isNew: { type: Boolean, default: false },
+  isNewArrival: { type: Boolean, default: false },
+  merchant_id: { type: Schema.Types.ObjectId, ref: 'Merchant' },
 }, {
   timestamps: true,
   toJSON: {

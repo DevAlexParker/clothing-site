@@ -1,8 +1,8 @@
 import { loadStripe } from '@stripe/stripe-js';
 
 // Your Stripe publishable key (test mode)
-// Replace with your live key when going to production
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SPzv5FJGDc6ICUgnjEfczkoRFxhOyxP5yZo8Ku9YGaEcPNdZrCiyW3QSrrXua6v4WNLrhYnzZYyzZufJ1dBJfBo00B0vOubIL';
+// Replace with your keys in the .env file
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder';
 
 export const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 

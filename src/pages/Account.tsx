@@ -27,12 +27,25 @@ export default function Account() {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
     if (user && activeTab === 'orders') {
-      fetchUserOrders();
+      fetchUserOrders(); // Initial fetch
+      
+      // Start polling for real-time updates
+      intervalId = setInterval(() => {
+        fetchUserOrders(false); // background fetch
+      }, 5000);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [user, activeTab]);
 
-  const fetchUserOrders = async () => {
+  const fetchUserOrders = async (showLoading = true) => {
+    if (showLoading && orders.length === 0) setLoadingOrders(true);
+    
     try {
       const res = await fetch(`${API_URL}/orders/user`, {
         headers: {

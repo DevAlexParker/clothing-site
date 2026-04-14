@@ -131,7 +131,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
       // Persist order to database
       const orderData = {
         orderId: orderNumber,
-        userId: user?.id,
+        userId: user?._id || (user as any)?.id,
         customerInfo: {
           fullName: shippingInfo.fullName,
           email: shippingInfo.email,

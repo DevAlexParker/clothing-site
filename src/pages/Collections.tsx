@@ -32,7 +32,7 @@ export default function Collections({ onProductClick, initialFilter = 'all' }: C
       // Category match
       let catMatch = false;
       if (categoryFilter === 'all') catMatch = true;
-      else if (categoryFilter === 'new-arrivals') catMatch = !!product.isNew;
+      else if (categoryFilter === 'new-arrivals') catMatch = !!product.isNewArrival;
       else catMatch = product.category.toLowerCase() === categoryFilter.toLowerCase();
 
       // Price match

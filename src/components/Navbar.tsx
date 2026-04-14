@@ -41,6 +41,13 @@ export default function Navbar({
             <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
           </button>
           <button 
+            onClick={() => navigate('studio')} 
+            className={`transition-colors hover:text-black flex items-center gap-1 ${currentPage === 'studio' ? 'text-black border-b-2 border-black' : 'text-gray-500'}`}
+          >
+            AI Studio
+            <span className="text-[8px] bg-black text-white px-1 rounded-sm ml-1 font-black">NEW</span>
+          </button>
+          <button 
             onClick={() => navigate('about')} 
             className={`transition-colors hover:text-black ${currentPage === 'about' ? 'text-black border-b-2 border-black' : 'text-gray-500'}`}
           >

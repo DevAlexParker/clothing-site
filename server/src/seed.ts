@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { connectDB } from './db.js';
 import { Product } from './models/Product.js';
+import { Merchant } from './models/Merchant.js';
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ const products = [
     name: 'Minimalist Overcoat',
     price: 45000,
     category: 'Outerwear',
-    isNew: true,
+    isNewArrival: true,
     images: [
       'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1550639524-a6f58345a278?auto=format&fit=crop&q=80&w=800'
@@ -39,7 +40,7 @@ const products = [
     name: 'Structured Blazer',
     price: 32000,
     category: 'Tailoring',
-    isNew: true,
+    isNewArrival: true,
     images: [
       'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&q=80&w=800'
@@ -123,7 +124,7 @@ const products = [
     name: 'Linen Button-Down',
     price: 12000,
     category: 'Basics',
-    isNew: true,
+    isNewArrival: true,
     images: [
       'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=800&q=80'
@@ -167,12 +168,25 @@ const products = [
 async function seed() {
   await connectDB();
 
-  // Clear existing products
+  // Clear existing data
   await Product.deleteMany({});
-  console.log('🗑️  Cleared existing products');
+  await Merchant.deleteMany({});
+  console.log('🗑️  Cleared existing products and merchants');
 
-  // Insert new products
-  const inserted = await Product.insertMany(products);
+  // Insert merchant
+  const merchant = await Merchant.create({
+    brandName: 'AURA',
+    isActive: true,
+    aiSettings: {
+      toneOfVoice: 'sophisticated, minimalist, and helpful',
+      styleFocus: 'Premium contemporary fashion'
+    }
+  });
+  console.log(`🏢 Seeded Merchant: ${merchant.brandName} (ID: ${merchant._id})`);
+
+  // Insert products
+  const productsWithMerchant = products.map(p => ({ ...p, merchant_id: merchant._id }));
+  const inserted = await Product.insertMany(productsWithMerchant);
   console.log(`✅ Seeded ${inserted.length} products into MongoDB`);
 
   process.exit(0);

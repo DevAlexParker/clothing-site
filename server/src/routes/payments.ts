@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import Stripe from 'stripe';
-import dotenv from 'dotenv';
 import { Order } from '../models/Order.js';
 
-dotenv.config();
-
 const router = Router();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
+if (!STRIPE_KEY) {
+  console.error('❌ ERROR: STRIPE_SECRET_KEY is not defined in the environment.');
+  console.error('Check your server/.env file.');
+}
+
+const stripe = new Stripe(STRIPE_KEY || '');
 
 // POST /api/payments/create-intent
 router.post('/create-intent', async (req, res) => {

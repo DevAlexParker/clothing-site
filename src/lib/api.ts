@@ -1,4 +1,14 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export interface Message {
+  role: 'user' | 'stylist';
+  content: string;
+}
+
+export interface StylistIntent {
+  occasion: string;
+  budget: number | null;
+  style: string;
+  fit: string;
+}
 
 export interface Product {
   id: string;
@@ -8,7 +18,6 @@ export interface Product {
   images: string[];
   colors: { name: string; hex: string }[];
   sizes: string[];
-  isNew?: boolean;
 }
 
 export interface OrderItem {
@@ -36,6 +45,8 @@ export interface Order {
   items: OrderItem[];
   totalAmount: number;
 }
+
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export async function fetchProducts(): Promise<Product[]> {
   const res = await fetch(`${API_BASE}/products`);
