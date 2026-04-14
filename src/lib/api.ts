@@ -19,6 +19,7 @@ export interface Product {
   colors: { name: string; hex: string }[];
   sizes: string[];
   isNew?: boolean;
+  stock?: number;
   isNewArrival?: boolean;
 }
 

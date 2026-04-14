@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { Order } from '../models/Order.js';
+import { Order, type IOrder } from '../models/Order.js';
+import { Product } from '../models/Product.js';
 import { authenticate, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -35,6 +36,14 @@ router.post('/', async (req, res) => {
     });
 
     await order.save();
+
+    // Decrement stock for each ordered item
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity }
+      });
+    }
+
     res.status(201).json(order);
   } catch (error) {
     console.error('Error creating order:', error);
@@ -108,6 +117,42 @@ router.patch('/:id/status', async (req, res) => {
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// POST /api/orders/:id/tracking — Add a tracking event (predefined or custom process step)
+router.post('/:id/tracking', async (req, res) => {
+  try {
+    const { status, message } = req.body;
+
+    if (!status || !message) {
+      res.status(400).json({ error: 'Status and message are required' });
+      return;
+    }
+
+    const order = await Order.findOne({ orderId: req.params.id });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    // If the tracking status maps to a top-level status, update it
+    const mainStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    if (mainStatuses.includes(status)) {
+      order.status = status as IOrder['status'];
+    }
+
+    order.trackingHistory.push({
+      status,
+      message,
+      timestamp: new Date()
+    });
+
+    await order.save();
+    res.json(order);
+  } catch (error) {
+    console.error('Error adding tracking event:', error);
+    res.status(500).json({ error: 'Failed to add tracking event' });
   }
 });
 

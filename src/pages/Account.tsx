@@ -149,23 +149,85 @@ export default function Account() {
                         {/* Expandable Tracking View */}
                         {selectedOrder?.orderId === order.orderId && (
                           <div className="mt-8 pt-8 border-t border-gray-100 animate-fade-in">
-                            <h3 className="text-sm font-bold tracking-widest uppercase text-gray-900 mb-8">Real-time Order Tracking</h3>
                             
-                            <div className="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100">
-                              {order.trackingHistory.slice().reverse().map((step, idx) => (
-                                <div key={idx} className="relative">
-                                  <div className={`absolute -left-8 top-1.5 w-6 h-6 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${idx === 0 ? 'bg-black animate-pulse' : 'bg-gray-200'}`} />
-                                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1">
-                                    <div>
-                                      <p className={`font-bold text-sm ${idx === 0 ? 'text-black' : 'text-gray-500'}`}>{step.status}</p>
-                                      <p className="text-xs text-gray-400 font-medium">{step.message}</p>
-                                    </div>
-                                    <p className="text-[10px] text-gray-300 font-bold whitespace-nowrap">
-                                      {new Date(step.timestamp).toLocaleString()}
-                                    </p>
-                                  </div>
+                            {/* Visual Progress Pipeline */}
+                            {order.status !== 'Cancelled' && (
+                              <div className="mb-10">
+                                <div className="flex items-center justify-between mb-2">
+                                  {(['Pending', 'Processing', 'Shipped', 'Delivered'] as const).map((step, idx, arr) => {
+                                    const stepOrder = arr.indexOf(step);
+                                    const currentOrder = arr.indexOf(order.status as typeof arr[number]);
+                                    const isActive = stepOrder <= currentOrder;
+                                    const isCurrent = step === order.status;
+                                    const icons = ['⏳', '🔄', '🚚', '✅'];
+                                    return (
+                                      <div key={step} className="flex items-center flex-1 last:flex-initial">
+                                        <div className="flex flex-col items-center">
+                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-base transition-all ${
+                                            isCurrent ? 'bg-black text-white shadow-lg shadow-black/20 scale-110' :
+                                            isActive ? 'bg-black text-white' : 'bg-gray-100 text-gray-400'
+                                          }`}>
+                                            {icons[idx]}
+                                          </div>
+                                          <span className={`text-[9px] font-bold uppercase tracking-wider mt-2 ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>{step}</span>
+                                        </div>
+                                        {idx < arr.length - 1 && (
+                                          <div className={`flex-1 h-1 mx-2 rounded-full transition-all ${stepOrder < currentOrder ? 'bg-black' : 'bg-gray-100'}`} />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                              ))}
+                              </div>
+                            )}
+
+                            {order.status === 'Cancelled' && (
+                              <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl text-center">
+                                <p className="text-sm font-bold text-red-600">❌ This order has been cancelled</p>
+                              </div>
+                            )}
+
+                            <h3 className="text-sm font-bold tracking-widest uppercase text-gray-900 mb-6">Tracking Timeline</h3>
+                            
+                            <div className="relative pl-8 space-y-6 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100">
+                              {order.trackingHistory.slice().reverse().map((step, idx) => {
+                                const getColor = (s: string) => {
+                                  switch (s) {
+                                    case 'Pending': return 'bg-amber-400';
+                                    case 'Processing': return 'bg-blue-500';
+                                    case 'Shipped': return 'bg-purple-500';
+                                    case 'Delivered': return 'bg-emerald-500';
+                                    case 'Cancelled': return 'bg-red-500';
+                                    default: return 'bg-gray-400';
+                                  }
+                                };
+                                const getLabelColor = (s: string) => {
+                                  switch (s) {
+                                    case 'Pending': return 'bg-amber-50 text-amber-700 border-amber-200';
+                                    case 'Processing': return 'bg-blue-50 text-blue-700 border-blue-200';
+                                    case 'Shipped': return 'bg-purple-50 text-purple-700 border-purple-200';
+                                    case 'Delivered': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                                    case 'Cancelled': return 'bg-red-50 text-red-700 border-red-200';
+                                    default: return 'bg-gray-50 text-gray-600 border-gray-200';
+                                  }
+                                };
+                                return (
+                                  <div key={idx} className="relative">
+                                    <div className={`absolute -left-8 top-1 w-6 h-6 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${idx === 0 ? getColor(step.status) + ' animate-pulse shadow-md' : 'bg-gray-200'}`} />
+                                    <div className={`${idx === 0 ? '' : 'opacity-60'}`}>
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border mb-1.5 ${getLabelColor(step.status)}`}>{step.status}</span>
+                                          <p className="text-xs text-gray-700 font-medium leading-relaxed">{step.message}</p>
+                                        </div>
+                                        <p className="text-[10px] text-gray-300 font-bold whitespace-nowrap mt-0.5">
+                                          {new Date(step.timestamp).toLocaleDateString()}<br />{new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
 
                             <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 glass-panel rounded-2xl">
@@ -176,6 +238,14 @@ export default function Account() {
                                 <div>
                                     <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Payment Status</p>
                                     <p className={`text-xs font-bold uppercase ${order.paymentStatus === 'paid' ? 'text-green-600' : 'text-orange-500'}`}>{order.paymentStatus}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Items</p>
+                                    <p className="text-xs font-bold text-gray-800">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Last Update</p>
+                                    <p className="text-xs font-bold text-gray-800">{order.trackingHistory.length > 0 ? new Date(order.trackingHistory[order.trackingHistory.length - 1].timestamp).toLocaleDateString() : 'N/A'}</p>
                                 </div>
                             </div>
                           </div>

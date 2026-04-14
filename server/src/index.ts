@@ -7,6 +7,7 @@ import orderRoutes from './routes/orders.js';
 import paymentRoutes from './routes/payments.js';
 import authRoutes from './routes/auth.js';
 import stylistRoutes from './routes/stylist.js';
+import analyticsRoutes from './routes/analytics.js';
 
 
 
@@ -26,6 +27,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/stylist', stylistRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 
 
