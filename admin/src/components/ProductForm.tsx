@@ -19,6 +19,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
     images: [''],
     colors: [{ name: '', hex: '#000000' }],
     sizes: [],
+    stock: 0,
     isNew: false,
   });
 
@@ -112,7 +113,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Category</label>
               <select
@@ -122,6 +123,17 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
               >
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Stock Qty</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.stock}
+                onChange={e => setFormData({ ...formData, stock: Math.max(0, Number(e.target.value)) })}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-900 transition-all text-sm font-medium font-mono"
+                placeholder="0"
+              />
             </div>
             <div className="flex items-center pt-8">
               <label className="flex items-center gap-3 cursor-pointer group">
@@ -134,7 +146,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
                   checked={formData.isNew}
                   onChange={e => setFormData({ ...formData, isNew: e.target.checked })}
                 />
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest group-hover:text-gray-900 transition-colors">Mark as "New Arrival"</span>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest group-hover:text-gray-900 transition-colors">New Arrival</span>
               </label>
             </div>
           </div>

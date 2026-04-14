@@ -12,11 +12,19 @@ export interface OrderItem {
 
 export type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
 
+export interface TrackingEvent {
+  status: string;
+  message: string;
+  timestamp: string;
+}
+
 export interface Order {
   id: string;
   orderId: string;
   createdAt: string;
   status: OrderStatus;
+  paymentMethod: 'stripe' | 'cod';
+  paymentStatus: 'pending' | 'paid' | 'failed';
   customerInfo: {
     fullName: string;
     email: string;
@@ -26,6 +34,7 @@ export interface Order {
   };
   items: OrderItem[];
   totalAmount: number;
+  trackingHistory: TrackingEvent[];
 }
 
 export interface AdminProduct {
@@ -36,25 +45,75 @@ export interface AdminProduct {
   images: string[];
   colors: { name: string; hex: string }[];
   sizes: string[];
+  stock: number;
   isNew?: boolean;
 }
 
+// ── Sales Analytics Types ──
+export interface SalesMonthly {
+  month: string;
+  monthIndex: number;
+  revenue: number;
+  orderCount: number;
+  itemsSold: number;
+  avgOrderValue: number;
+}
+
+export interface SalesDailyPoint {
+  day: number;
+  revenue: number;
+  orders: number;
+}
+
+export interface TopProduct {
+  id: string;
+  name: string;
+  revenue: number;
+  unitsSold: number;
+  image: string;
+}
+
+export interface SalesAnalytics {
+  summary: {
+    totalRevenue: number;
+    totalOrders: number;
+    totalItemsSold: number;
+    avgOrderValue: number;
+    growthPercent: number;
+  };
+  monthly: SalesMonthly[];
+  dailySales: SalesDailyPoint[];
+  topProducts: TopProduct[];
+}
+
+// ── Orders ──
 export async function fetchOrders(): Promise<Order[]> {
   const res = await fetch(`${API_BASE}/orders`);
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
 }
 
-export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+export async function updateOrderStatus(orderId: string, status: OrderStatus, message?: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, message }),
   });
   if (!res.ok) throw new Error('Failed to update order status');
   return res.json();
 }
 
+export async function addTrackingEvent(orderId: string, status: string, message: string): Promise<Order> {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/tracking`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, message }),
+  });
+  if (!res.ok) throw new Error('Failed to add tracking event');
+  return res.json();
+}
+
+// ── Products ──
 export async function fetchProducts(): Promise<AdminProduct[]> {
   const res = await fetch(`${API_BASE}/products`);
   if (!res.ok) throw new Error('Failed to fetch products');
@@ -81,6 +140,16 @@ export async function updateProduct(id: string, product: AdminProduct): Promise<
   return res.json();
 }
 
+export async function updateProductStock(id: string, stock: number): Promise<AdminProduct> {
+  const res = await fetch(`${API_BASE}/products/${id}/stock`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stock }),
+  });
+  if (!res.ok) throw new Error('Failed to update stock');
+  return res.json();
+}
+
 export async function deleteProduct(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'DELETE',
@@ -88,6 +157,14 @@ export async function deleteProduct(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete product');
 }
 
+// ── Analytics ──
+export async function fetchSalesAnalytics(): Promise<SalesAnalytics> {
+  const res = await fetch(`${API_BASE}/analytics/sales`);
+  if (!res.ok) throw new Error('Failed to fetch analytics');
+  return res.json();
+}
+
+// ── Helpers ──
 export const formatPrice = (price: number) => {
   return new Intl.NumberFormat('en-LK', {
     style: 'currency',

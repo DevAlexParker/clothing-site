@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import OrdersView from './components/OrdersView';
 import ProductsView from './components/ProductsView';
+import SalesView from './components/SalesView';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'inventory'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales'>('orders');
+
+  const tabTitles = {
+    orders: 'Order Management',
+    inventory: 'Product Inventory',
+    sales: 'Sales Analytics',
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex">
@@ -45,6 +52,20 @@ export default function App() {
             </svg>
             <span className="font-bold text-sm tracking-wide">Inventory</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('sales')}
+            className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all group ${
+              activeTab === 'sales' 
+                ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/10' 
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <svg className={`w-5 h-5 transition-colors ${activeTab === 'sales' ? 'text-white' : 'text-gray-400 group-hover:text-gray-900'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="font-bold text-sm tracking-wide">Sales</span>
+          </button>
         </nav>
 
         <div className="p-8 border-t border-gray-50">
@@ -66,7 +87,7 @@ export default function App() {
           <div>
             <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Overview</h2>
             <h3 className="text-3xl font-black text-gray-900">
-              {activeTab === 'orders' ? 'Order Management' : 'Product Inventory'}
+              {tabTitles[activeTab]}
             </h3>
           </div>
           <div className="flex gap-4">
@@ -76,7 +97,9 @@ export default function App() {
           </div>
         </header>
 
-        {activeTab === 'orders' ? <OrdersView /> : <ProductsView />}
+        {activeTab === 'orders' && <OrdersView />}
+        {activeTab === 'inventory' && <ProductsView />}
+        {activeTab === 'sales' && <SalesView />}
       </main>
     </div>
   );
