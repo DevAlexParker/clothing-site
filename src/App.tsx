@@ -10,7 +10,7 @@ import Home from './pages/Home';
 import Collections from './pages/Collections';
 import About from './pages/About';
 import Account from './pages/Account';
-import StylistStudio from './pages/StylistStudio';
+
 
 
 interface CartItem {
@@ -141,7 +141,7 @@ export default function App() {
         {currentPage === 'new-arrivals' && <Collections key="new-arrivals" onProductClick={setSelectedProduct} initialFilter="new-arrivals" />}
         {currentPage === 'about' && <About />}
         {currentPage === 'account' && <Account />}
-        {currentPage === 'studio' && <StylistStudio onAddToCart={handleAddToCart} cart={cart} />}
+
 
         {currentPage === 'checkout' && shippingInfo && (
           <CheckoutPage

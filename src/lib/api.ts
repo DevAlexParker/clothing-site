@@ -1,14 +1,4 @@
-export interface Message {
-  role: 'user' | 'stylist';
-  content: string;
-}
 
-export interface StylistIntent {
-  occasion: string;
-  budget: number | null;
-  style: string;
-  fit: string;
-}
 
 export interface Product {
   id: string;
