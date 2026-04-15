@@ -39,9 +39,14 @@ export default function SalesView() {
   }
 
   const { summary, monthly, dailySales, topProducts } = analytics;
+  const normalizedDailySales = dailySales.map((point) => ({
+    day: Number(point.day) || 0,
+    revenue: Number(point.revenue) || 0,
+    orders: Number(point.orders) || 0,
+  }));
 
   // Find max values for chart scaling
-  const maxDailyRevenue = Math.max(...dailySales.map(d => d.revenue), 1);
+  const maxDailyRevenue = Math.max(...normalizedDailySales.map((d) => d.revenue), 1);
   const maxMonthlyRevenue = Math.max(...monthly.map(m => m.revenue), 1);
   const today = new Date().getDate();
 
@@ -90,12 +95,12 @@ export default function SalesView() {
 
           {/* Bar Chart */}
           <div className="flex items-end gap-[2px] h-48 relative">
-            {dailySales.map((point) => {
+            {normalizedDailySales.map((point) => {
               const height = maxDailyRevenue > 0 ? (point.revenue / maxDailyRevenue) * 100 : 0;
               const isToday = point.day === today;
               const isFuture = point.day > today;
               return (
-                <div key={point.day} className="flex-1 flex flex-col items-center group relative">
+                <div key={point.day} className="flex-1 h-full flex flex-col justify-end items-center group relative">
                   {/* Tooltip */}
                   <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-20">
                     <div className="bg-gray-900 text-white text-[10px] font-bold px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
@@ -125,9 +130,9 @@ export default function SalesView() {
 
           {/* X-axis labels */}
           <div className="flex gap-[2px] mt-2">
-            {dailySales.map((point) => (
+            {normalizedDailySales.map((point) => (
               <div key={point.day} className="flex-1 text-center">
-                {(point.day === 1 || point.day === 10 || point.day === 20 || point.day === dailySales.length) && (
+                {(point.day === 1 || point.day === 10 || point.day === 20 || point.day === normalizedDailySales.length) && (
                   <span className="text-[9px] text-gray-400 font-bold">{point.day}</span>
                 )}
               </div>
@@ -141,7 +146,7 @@ export default function SalesView() {
           <p className="text-xs text-gray-400 mb-6">Last 4 months side by side</p>
 
           <div className="space-y-4">
-            {[...monthly].reverse().map((m, idx) => {
+            {[...monthly].reverse().map((m) => {
               const widthPercent = maxMonthlyRevenue > 0 ? (m.revenue / maxMonthlyRevenue) * 100 : 0;
               const isCurrent = m.monthIndex === 0;
               return (
