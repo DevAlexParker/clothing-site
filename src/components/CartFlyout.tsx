@@ -1,7 +1,8 @@
 import type { Product } from '../data';
 import { formatPrice } from '../data';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createOrder } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CartItem {
   product: Product;
@@ -37,6 +38,7 @@ export default function CartFlyout({
   clearCart,
   onCheckout
 }: CartFlyoutProps) {
+  const { user } = useAuth();
 
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'success'>('cart');
 
@@ -54,10 +56,29 @@ export default function CartFlyout({
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setShippingInfo((prev) => ({
+      ...prev,
+      fullName: user?.name || '',
+      email: user?.email || '',
+    }));
+  }, [isOpen, user]);
+
   if (!isOpen) return null;
 
   const handleClose = () => {
     onClose();
+    setShippingErrors({});
+    setOrderId('');
+    setIsSubmitting(false);
+    setShippingInfo({
+      fullName: user?.name || '',
+      email: user?.email || '',
+      address: '',
+      city: '',
+      postalCode: '',
+    });
     setTimeout(() => setCheckoutStep('cart'), 300);
   };
 

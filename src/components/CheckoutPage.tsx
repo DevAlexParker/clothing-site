@@ -95,6 +95,8 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
     try {
       let finalPaymentStatus: 'paid' | 'pending' = 'pending';
       let finalPaymentIntentId = '';
+      const resolvedCustomerName = user?.name?.trim() || shippingInfo.fullName.trim();
+      const resolvedCustomerEmail = user?.email?.trim() || shippingInfo.email.trim();
 
       if (paymentMethod === 'stripe') {
         if (!stripe || !elements || !clientSecret) return;
@@ -133,8 +135,8 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
         orderId: orderNumber,
         userId: user?._id || (user as any)?.id,
         customerInfo: {
-          fullName: shippingInfo.fullName,
-          email: shippingInfo.email,
+          fullName: resolvedCustomerName,
+          email: resolvedCustomerEmail,
           addressLine1: shippingInfo.address,
           city: shippingInfo.city,
           postalCode: shippingInfo.postalCode,
@@ -205,6 +207,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
 
   /* ─── SUCCESS SCREEN ─── */
   if (isComplete) {
+    const isCod = paymentMethod === 'cod';
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="checkout-success-card glass-card rounded-3xl p-12 max-w-lg w-full text-center">
@@ -213,8 +216,8 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-3xl font-black tracking-tight text-gray-900 mb-2">Payment Successful!</h2>
-          <p className="text-gray-500 mb-8">Thank you for shopping with AURA</p>
+          <h2 className="text-3xl font-black tracking-tight text-gray-900 mb-2">{isCod ? 'Order Confirmed!' : 'Payment Successful!'}</h2>
+          <p className="text-gray-500 mb-8">{isCod ? 'Your Cash on Delivery order has been placed.' : 'Thank you for shopping with AURA'}</p>
 
           <div className="glass-panel rounded-2xl p-6 mb-8 space-y-3">
             <div className="flex justify-between text-sm">
@@ -222,7 +225,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
               <span className="font-mono font-bold text-gray-900">#{orderNumber}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Amount Paid</span>
+              <span className="text-gray-500">{isCod ? 'Order Total' : 'Amount Paid'}</span>
               <span className="font-bold text-gray-900">{formatPrice(cartTotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
@@ -232,7 +235,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
           </div>
 
           <p className="text-xs text-gray-400 mb-6">
-            A confirmation email has been sent to {shippingInfo.email}
+            {isCod ? `Your order confirmation has been sent to ${shippingInfo.email}` : `A confirmation email has been sent to ${shippingInfo.email}`}
           </p>
 
           <div className="checkout-progress-bar h-1 bg-gray-200 rounded-full overflow-hidden">
@@ -403,7 +406,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
               {/* Pay Button */}
               <button
                 type="submit"
-                disabled={!stripe || isProcessing}
+                disabled={(paymentMethod === 'stripe' && !stripe) || isProcessing}
                 className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest 
                   hover:bg-black/90 hover:scale-[1.02] hover:shadow-[0_20px_60px_rgba(0,0,0,0.3)]
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
@@ -422,7 +425,7 @@ function CheckoutForm({ cart, shippingInfo, onPaymentSuccess, onBack }: Checkout
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    PAY {formatPrice(cartTotal)}
+                    {paymentMethod === 'cod' ? 'CONFIRM ORDER' : `PAY ${formatPrice(cartTotal)}`}
                   </>
                 )}
               </button>
