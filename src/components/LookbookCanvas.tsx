@@ -22,7 +22,8 @@ export default function LookbookCanvas({ products, intent, onAddToCart, cart }: 
     
     products.forEach((p) => {
       const size = (p.sizes && p.sizes.length > 0) ? p.sizes[0] : 'M';
-      const color = (p.colors && p.colors.length > 0) ? p.colors[0].name : 'Standard';
+      const colorObj: any = p.colors?.[0];
+      const color = colorObj ? (colorObj.name || (typeof colorObj === 'string' ? colorObj : 'Standard')) : 'Standard';
       onAddToCart(p, size, color);
     });
     
@@ -32,7 +33,8 @@ export default function LookbookCanvas({ products, intent, onAddToCart, cart }: 
 
   const handleSingleAdd = (product: Product, idx: number) => {
     const size = (product.sizes && product.sizes.length > 0) ? product.sizes[0] : 'M';
-    const color = (product.colors && product.colors.length > 0) ? product.colors[0].name : 'Standard';
+    const colorObj: any = product.colors?.[0];
+    const color = colorObj ? (colorObj.name || (typeof colorObj === 'string' ? colorObj : 'Standard')) : 'Standard';
     onAddToCart(product, size, color);
     setJustAddedIdx(idx);
     setTimeout(() => setJustAddedIdx(null), 3000);

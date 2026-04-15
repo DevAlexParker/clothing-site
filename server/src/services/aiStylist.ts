@@ -122,7 +122,7 @@ export async function processStylistRequest(userMessage: string, merchantId: str
        usedIds.add(productId); // Ensure uniqueness
 
        const fullProduct = await ProductModel.findById(productId).lean();
-       if (!fullProduct) return match.metadata;
+       if (!fullProduct) return { ...match.metadata, id: productId };
        return { ...fullProduct, id: fullProduct._id.toString() };
      } catch (e) {
        console.error("Pinecone Logic Error:", e);
