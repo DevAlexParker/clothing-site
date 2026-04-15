@@ -8,6 +8,10 @@ const router = Router();
 router.get('/sales', async (_req, res) => {
   try {
     const now = new Date();
+    const toSafeNumber = (value: unknown) => {
+      const parsed = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
 
     // Helper to get start of month
     const getMonthStart = (monthsAgo: number) => {
@@ -31,7 +35,7 @@ router.get('/sales', async (_req, res) => {
         status: { $ne: 'Cancelled' }
       });
 
-      const revenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+      const revenue = orders.reduce((sum, o) => sum + toSafeNumber(o.totalAmount), 0);
       const orderCount = orders.length;
       const itemsSold = orders.reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.quantity, 0), 0);
 
@@ -63,7 +67,7 @@ router.get('/sales', async (_req, res) => {
     dailyOrders.forEach(order => {
       const day = new Date(order.createdAt).getDate().toString();
       if (dailySales[day]) {
-        dailySales[day].revenue += order.totalAmount;
+        dailySales[day].revenue += toSafeNumber(order.totalAmount);
         dailySales[day].orders += 1;
       }
     });
@@ -77,8 +81,8 @@ router.get('/sales', async (_req, res) => {
         if (!productRevenue[item.productId]) {
           productRevenue[item.productId] = { name: item.productName, revenue: 0, unitsSold: 0, image: item.productImage };
         }
-        productRevenue[item.productId].revenue += item.productPrice * item.quantity;
-        productRevenue[item.productId].unitsSold += item.quantity;
+        productRevenue[item.productId].revenue += toSafeNumber(item.productPrice) * toSafeNumber(item.quantity);
+        productRevenue[item.productId].unitsSold += toSafeNumber(item.quantity);
       });
     });
 
@@ -88,7 +92,7 @@ router.get('/sales', async (_req, res) => {
       .map(([id, data]) => ({ id, ...data }));
 
     // Summary
-    const totalRevenue = allOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const totalRevenue = allOrders.reduce((sum, o) => sum + toSafeNumber(o.totalAmount), 0);
     const totalOrders = allOrders.length;
     const totalItemsSold = allOrders.reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.quantity, 0), 0);
 
@@ -108,7 +112,11 @@ router.get('/sales', async (_req, res) => {
         growthPercent,
       },
       monthly: monthlyData,
-      dailySales: Object.entries(dailySales).map(([day, data]) => ({ day: parseInt(day), ...data })),
+      dailySales: Object.entries(dailySales).map(([day, data]) => ({
+        day: parseInt(day, 10),
+        revenue: toSafeNumber(data.revenue),
+        orders: toSafeNumber(data.orders),
+      })),
       topProducts,
     });
   } catch (error) {
