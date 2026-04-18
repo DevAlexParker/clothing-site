@@ -101,7 +101,7 @@ export default function ProductsView() {
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">New Arrivals</p>
-          <p className="text-3xl font-black text-emerald-600">{products.filter(p => p.isNew).length}</p>
+          <p className="text-3xl font-black text-emerald-600">{products.filter(p => p.isNewArrival).length}</p>
         </div>
         <div className={`p-6 rounded-2xl border shadow-sm ${lowStockCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'}`}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Low Stock</p>
@@ -184,7 +184,7 @@ export default function ProductsView() {
                           </div>
                           <div>
                             <div className="font-bold text-gray-900">{product.name}</div>
-                            <div className="text-xs text-gray-400 mt-0.5">{product.isNew ? '✨ New Arrival' : 'Standard Item'}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{product.isNewArrival ? '✨ New Arrival' : 'Standard Item'}</div>
                           </div>
                         </div>
                       </td>

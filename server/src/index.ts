@@ -10,6 +10,7 @@ import paymentRoutes from './routes/payments.js';
 import authRoutes from './routes/auth.js';
 
 import analyticsRoutes from './routes/analytics.js';
+import adminRoutes from './routes/admin.js';
 
 
 
@@ -50,6 +51,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 
 
 

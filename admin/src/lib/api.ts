@@ -81,7 +81,21 @@ export interface AdminProduct {
   colors: { name: string; hex: string }[];
   sizes: string[];
   stock: number;
-  isNew?: boolean;
+  isNewArrival?: boolean;
+}
+
+export type AdminNotificationType = 'low_stock' | 'out_of_stock' | 'new_order';
+
+export interface AdminNotificationItem {
+  id: string;
+  type: AdminNotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface AdminNotificationsResponse {
+  items: AdminNotificationItem[];
 }
 
 // ── Sales Analytics Types ──
@@ -193,6 +207,14 @@ export async function deleteProduct(id: string): Promise<void> {
     headers: { ...authHeaders() },
   });
   if (!res.ok) throw new Error('Failed to delete product');
+}
+
+export async function fetchAdminNotifications(): Promise<AdminNotificationsResponse> {
+  const res = await fetch(`${API_BASE}/admin/notifications`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to fetch notifications');
+  return res.json();
 }
 
 // ── Analytics ──

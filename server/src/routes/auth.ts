@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -33,6 +34,15 @@ const updateSchema = z.object({
 const adminLoginSchema = z.object({
   username: z.string().trim().min(1).max(100),
   password: z.string().min(1).max(255),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(16).max(256),
+  password: z.string().min(8).max(128),
 });
 
 const getAdminCredentials = () => {
@@ -177,6 +187,87 @@ router.patch('/update', authenticate, async (req: AuthRequest, res) => {
       return;
     }
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = forgotPasswordSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail });
+    const generic = { message: 'If an account exists for that email, a reset link has been sent.' };
+
+    if (!user) {
+      res.json(generic);
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    user.passwordResetToken = hash;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const baseUrl = (process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(
+      /\/$/,
+      ''
+    );
+    const resetUrl = `${baseUrl}/?resetPasswordToken=${encodeURIComponent(token)}`;
+
+    try {
+      const { sendPasswordResetEmail } = await import('../lib/mail.js');
+      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+    } catch (err) {
+      console.error('Failed to send reset email:', err);
+    }
+
+    res.json(generic);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to send reset email' });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = resetPasswordSchema.parse(req.body);
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hash,
+      passwordResetExpires: { $gt: new Date() },
+    }).select('+passwordResetToken +passwordResetExpires +password');
+
+    if (!user) {
+      res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+      return;
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    const tokenJwt = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({
+      token: tokenJwt,
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

@@ -153,7 +153,7 @@ const products = [
     name: 'Chunky Loafers',
     price: 26000,
     category: 'Accessories',
-    isNew: true,
+    isNewArrival: true,
     images: [
       'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=800',
       'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&q=80&w=800'

@@ -20,7 +20,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
     colors: [{ name: '', hex: '#000000' }],
     sizes: [],
     stock: 0,
-    isNew: false,
+    isNewArrival: false,
   });
 
   useEffect(() => {
@@ -137,14 +137,14 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
             </div>
             <div className="flex items-center pt-8">
               <label className="flex items-center gap-3 cursor-pointer group">
-                <div className={`w-12 h-6 rounded-full transition-all flex items-center p-1 ${formData.isNew ? 'bg-emerald-500' : 'bg-gray-200'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full transition-all transform ${formData.isNew ? 'translate-x-6' : 'translate-x-0 shadow-sm'}`} />
+                <div className={`w-12 h-6 rounded-full transition-all flex items-center p-1 ${formData.isNewArrival ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full transition-all transform ${formData.isNewArrival ? 'translate-x-6' : 'translate-x-0 shadow-sm'}`} />
                 </div>
                 <input
                   type="checkbox"
                   className="hidden"
-                  checked={formData.isNew}
-                  onChange={e => setFormData({ ...formData, isNew: e.target.checked })}
+                  checked={!!formData.isNewArrival}
+                  onChange={e => setFormData({ ...formData, isNewArrival: e.target.checked })}
                 />
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-widest group-hover:text-gray-900 transition-colors">New Arrival</span>
               </label>

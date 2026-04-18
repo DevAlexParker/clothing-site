@@ -7,6 +7,8 @@ export interface IUser extends Document {
   phone?: string;
   role: 'user' | 'admin';
   isVerified: boolean;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +20,8 @@ const UserSchema = new Schema<IUser>({
   phone: { type: String },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isVerified: { type: Boolean, default: false },
+  passwordResetToken: { type: String, select: false },
+  passwordResetExpires: { type: Date, select: false },
 }, {
   timestamps: true,
   toJSON: {
