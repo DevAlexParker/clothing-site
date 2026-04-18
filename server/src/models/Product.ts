@@ -31,10 +31,12 @@ const ProductSchema = new Schema<IProduct>({
     // Map _id to id for frontend compatibility
     virtuals: true,
     transform: (_doc, ret) => {
-      ret.id = ret._id.toString();
-      delete ret._id;
-      delete ret.__v;
-      return ret;
+      const safeRet = ret as Record<string, unknown>;
+      const objectId = safeRet._id;
+      safeRet.id = typeof objectId === 'string' ? objectId : String(objectId);
+      delete safeRet._id;
+      delete safeRet.__v;
+      return safeRet;
     }
   }
 });

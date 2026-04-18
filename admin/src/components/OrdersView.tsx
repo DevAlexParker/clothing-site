@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchOrders, updateOrderStatus, addTrackingEvent, formatPrice } from '../lib/api';
-import type { Order, OrderStatus, TrackingEvent } from '../lib/api';
+import type { Order, OrderStatus } from '../lib/api';
 
 // ── Predefined Process Steps (order fulfillment workflow) ──────────────────
 const PREDEFINED_PROCESSES: { status: string; label: string; message: string; icon: string }[] = [

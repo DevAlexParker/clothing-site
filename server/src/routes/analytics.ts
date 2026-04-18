@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { Order } from '../models/Order.js';
-import { Product } from '../models/Product.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/analytics/sales — Get sales analytics for dashboard
-router.get('/sales', async (_req, res) => {
+router.get('/sales', authenticate, authorize(['admin']), async (_req, res) => {
   try {
     const now = new Date();
     const toSafeNumber = (value: unknown) => {

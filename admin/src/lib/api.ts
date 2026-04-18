@@ -1,4 +1,39 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const TOKEN_KEY = 'aura_token';
+const getAdminToken = () => localStorage.getItem(TOKEN_KEY);
+const authHeaders = (): Record<string, string> => {
+  const token = getAdminToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export interface AdminAuthUser {
+  name: string;
+  role: 'admin';
+}
+
+export async function adminLogin(username: string, password: string): Promise<AdminAuthUser> {
+  const res = await fetch(`${API_BASE}/auth/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to login');
+  }
+
+  localStorage.setItem(TOKEN_KEY, data.token);
+  return data.user as AdminAuthUser;
+}
+
+export function adminLogout() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function hasAdminToken() {
+  return Boolean(getAdminToken());
+}
 
 export interface OrderItem {
   productId: string;
@@ -88,7 +123,9 @@ export interface SalesAnalytics {
 
 // ── Orders ──
 export async function fetchOrders(): Promise<Order[]> {
-  const res = await fetch(`${API_BASE}/orders`);
+  const res = await fetch(`${API_BASE}/orders`, {
+    headers: { ...authHeaders() },
+  });
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
 }
@@ -96,7 +133,7 @@ export async function fetchOrders(): Promise<Order[]> {
 export async function updateOrderStatus(orderId: string, status: OrderStatus, message?: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, message }),
   });
   if (!res.ok) throw new Error('Failed to update order status');
@@ -106,7 +143,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, me
 export async function addTrackingEvent(orderId: string, status: string, message: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/orders/${orderId}/tracking`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, message }),
   });
   if (!res.ok) throw new Error('Failed to add tracking event');
@@ -123,7 +160,7 @@ export async function fetchProducts(): Promise<AdminProduct[]> {
 export async function createProduct(product: AdminProduct): Promise<AdminProduct> {
   const res = await fetch(`${API_BASE}/products`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(product),
   });
   if (!res.ok) throw new Error('Failed to create product');
@@ -133,7 +170,7 @@ export async function createProduct(product: AdminProduct): Promise<AdminProduct
 export async function updateProduct(id: string, product: AdminProduct): Promise<AdminProduct> {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(product),
   });
   if (!res.ok) throw new Error('Failed to update product');
@@ -143,7 +180,7 @@ export async function updateProduct(id: string, product: AdminProduct): Promise<
 export async function updateProductStock(id: string, stock: number): Promise<AdminProduct> {
   const res = await fetch(`${API_BASE}/products/${id}/stock`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ stock }),
   });
   if (!res.ok) throw new Error('Failed to update stock');
@@ -153,13 +190,16 @@ export async function updateProductStock(id: string, stock: number): Promise<Adm
 export async function deleteProduct(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'DELETE',
+    headers: { ...authHeaders() },
   });
   if (!res.ok) throw new Error('Failed to delete product');
 }
 
 // ── Analytics ──
 export async function fetchSalesAnalytics(): Promise<SalesAnalytics> {
-  const res = await fetch(`${API_BASE}/analytics/sales`);
+  const res = await fetch(`${API_BASE}/analytics/sales`, {
+    headers: { ...authHeaders() },
+  });
   if (!res.ok) throw new Error('Failed to fetch analytics');
   return res.json();
 }

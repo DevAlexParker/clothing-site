@@ -1,19 +1,57 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import { User } from '../models/User.js';
 import { authenticate, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'aura_secret_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required');
+}
+
+const registerSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.string().trim().email().max(255),
+  password: z.string().min(8).max(128),
+  phone: z.string().trim().max(30).optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().trim().email().max(255),
+  password: z.string().min(8).max(128),
+});
+
+const updateSchema = z.object({
+  name: z.string().trim().min(2).max(80).optional(),
+  email: z.string().trim().email().max(255).optional(),
+  phone: z.string().trim().max(30).optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: 'No updates provided',
+});
+const adminLoginSchema = z.object({
+  username: z.string().trim().min(1).max(100),
+  password: z.string().min(1).max(255),
+});
+
+const getAdminCredentials = () => {
+  const username = process.env.ADMIN_USERNAME?.trim();
+  const password = process.env.ADMIN_PASSWORD?.trim();
+  if (!username || !password) {
+    return null;
+  }
+  return { username, password };
+};
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone } = registerSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       res.status(400).json({ error: 'User already exists' });
       return;
@@ -24,7 +62,7 @@ router.post('/register', async (req, res) => {
 
     const user = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       phone,
     });
@@ -36,6 +74,10 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ user, token });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
   }
@@ -44,9 +86,10 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = loginSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       res.status(400).json({ error: 'Invalid credentials' });
       return;
@@ -62,8 +105,51 @@ router.post('/login', async (req, res) => {
 
     res.json({ user, token });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
     console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
+// POST /api/auth/admin/login
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { username, password } = adminLoginSchema.parse(req.body);
+    const credentials = getAdminCredentials();
+
+    if (!credentials) {
+      res.status(500).json({ error: 'Admin credentials are not configured on the server' });
+      return;
+    }
+
+    if (username.trim() !== credentials.username || password !== credentials.password) {
+      res.status(401).json({ error: 'Invalid admin credentials' });
+      return;
+    }
+
+    const token = jwt.sign(
+      { role: 'admin', authType: 'env_admin', username },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        name: username,
+        role: 'admin',
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Admin login error:', error);
+    res.status(500).json({ error: 'Failed to login as admin' });
   }
 });
 
@@ -75,19 +161,21 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 // PATCH /api/auth/update
 router.patch('/update', authenticate, async (req: AuthRequest, res) => {
   try {
-    const updates = Object.keys(req.body);
-    const allowedUpdates = ['name', 'email', 'phone'];
-    const isValidOperation = updates.every(update => allowedUpdates.includes(update));
-
-    if (!isValidOperation) {
-      res.status(400).json({ error: 'Invalid updates' });
-      return;
+    const payload = updateSchema.parse(req.body);
+    if (payload.email) {
+      payload.email = payload.email.toLowerCase();
     }
 
-    updates.forEach(update => (req.user[update] = req.body[update]));
+    Object.entries(payload).forEach(([key, value]) => {
+      req.user[key] = value;
+    });
     await req.user.save();
     res.json(req.user);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });

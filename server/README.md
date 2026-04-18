@@ -28,6 +28,10 @@ PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
 STRIPE_SECRET_KEY=your_stripe_key
+STRIPE_WEBHOOK_SECRET=your_webhook_signing_secret
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
 ```
 
 ### Scripts

@@ -1,32 +1,84 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { Order, type IOrder } from '../models/Order.js';
 import { Product } from '../models/Product.js';
-import { authenticate, type AuthRequest } from '../middleware/auth.js';
+import { authenticate, authorize, optionalAuthenticate, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+const ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] as const;
+
+const createOrderSchema = z.object({
+  orderId: z.string().trim().min(3).max(64),
+  customerInfo: z.object({
+    fullName: z.string().trim().min(2).max(120),
+    email: z.string().trim().email().max(255),
+    addressLine1: z.string().trim().min(5).max(255),
+    city: z.string().trim().min(2).max(120),
+    postalCode: z.string().trim().min(3).max(20),
+  }),
+  items: z.array(
+    z.object({
+      productId: z.string().trim().min(1),
+      quantity: z.number().int().min(1).max(20),
+      selectedSize: z.string().trim().min(1).max(20),
+      selectedColor: z.string().trim().min(1).max(40),
+    })
+  ).min(1).max(50),
+  paymentMethod: z.enum(['stripe', 'cod']).default('stripe'),
+  paymentStatus: z.enum(['pending', 'paid', 'failed']).optional(),
+  paymentIntentId: z.string().trim().max(255).optional(),
+});
+
+const statusUpdateSchema = z.object({
+  status: z.enum(ORDER_STATUSES),
+  message: z.string().trim().max(500).optional(),
+});
+
+const trackingSchema = z.object({
+  status: z.string().trim().min(1).max(100),
+  message: z.string().trim().min(1).max(500),
+});
 
 // POST /api/orders — Create a new order (used by Store)
-router.post('/', async (req, res) => {
+router.post('/', optionalAuthenticate, async (req: AuthRequest, res) => {
   try {
-    const { 
-      orderId, customerInfo, items, totalAmount, 
-      paymentMethod, paymentStatus, paymentIntentId, userId 
-    } = req.body;
+    const { orderId, customerInfo, items, paymentMethod, paymentStatus, paymentIntentId } = createOrderSchema.parse(req.body);
 
-    if (!orderId || !customerInfo || !items || !totalAmount) {
-      res.status(400).json({ error: 'Missing required fields' });
-      return;
-    }
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const products = await Product.find({ _id: { $in: productIds } }).lean();
+    const productMap = new Map(products.map((product) => [String(product._id), product]));
+
+    const normalizedItems = items.map((item) => {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw new Error(`Product not found: ${item.productId}`);
+      }
+      if (product.stock < item.quantity) {
+        throw new Error(`Insufficient stock for product: ${product.name}`);
+      }
+
+      return {
+        productId: item.productId,
+        productName: product.name,
+        productImage: product.images?.[0] ?? '',
+        productPrice: product.price,
+        quantity: item.quantity,
+        selectedSize: item.selectedSize,
+        selectedColor: item.selectedColor,
+      };
+    });
+
+    const totalAmount = normalizedItems.reduce((sum, item) => sum + item.productPrice * item.quantity, 0);
 
     const order = new Order({
       orderId,
-      userId,
+      userId: req.user?._id,
       status: 'Pending',
-      paymentMethod: paymentMethod || 'stripe',
+      paymentMethod,
       paymentStatus: paymentStatus || 'pending',
       paymentIntentId,
       customerInfo,
-      items,
+      items: normalizedItems,
       totalAmount,
       trackingHistory: [{
         status: 'Pending',
@@ -46,6 +98,14 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(order);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    if (error instanceof Error && (error.message.startsWith('Product not found') || error.message.startsWith('Insufficient stock'))) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Failed to create order' });
   }
@@ -63,7 +123,7 @@ router.get('/user', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /api/orders — Get all orders (used by Admin)
-router.get('/', async (_req, res) => {
+router.get('/', authenticate, authorize(['admin']), async (_req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
     res.json(orders);
@@ -74,11 +134,15 @@ router.get('/', async (_req, res) => {
 });
 
 // GET /api/orders/:id — Get single order
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res) => {
   try {
     const order = await Order.findOne({ orderId: req.params.id });
     if (!order) {
       res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+    if (req.user.role !== 'admin' && String(order.userId) !== String(req.user._id)) {
+      res.status(403).json({ error: 'Access denied.' });
       return;
     }
     res.json(order);
@@ -89,15 +153,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // PATCH /api/orders/:id/status — Update order status (used by Admin)
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authenticate, authorize(['admin']), async (req, res) => {
   try {
-    const { status, message } = req.body;
-    const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
-
-    if (!status || !validStatuses.includes(status)) {
-      res.status(400).json({ error: 'Invalid status' });
-      return;
-    }
+    const { status, message } = statusUpdateSchema.parse(req.body);
 
     const order = await Order.findOne({ orderId: req.params.id });
     if (!order) {
@@ -115,20 +173,19 @@ router.patch('/:id/status', async (req, res) => {
     await order.save();
     res.json(order);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
     console.error('Error updating order status:', error);
     res.status(500).json({ error: 'Failed to update order status' });
   }
 });
 
 // POST /api/orders/:id/tracking — Add a tracking event (predefined or custom process step)
-router.post('/:id/tracking', async (req, res) => {
+router.post('/:id/tracking', authenticate, authorize(['admin']), async (req, res) => {
   try {
-    const { status, message } = req.body;
-
-    if (!status || !message) {
-      res.status(400).json({ error: 'Status and message are required' });
-      return;
-    }
+    const { status, message } = trackingSchema.parse(req.body);
 
     const order = await Order.findOne({ orderId: req.params.id });
     if (!order) {
@@ -137,7 +194,7 @@ router.post('/:id/tracking', async (req, res) => {
     }
 
     // If the tracking status maps to a top-level status, update it
-    const mainStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    const mainStatuses = ORDER_STATUSES as readonly string[];
     if (mainStatuses.includes(status)) {
       order.status = status as IOrder['status'];
     }
@@ -151,6 +208,10 @@ router.post('/:id/tracking', async (req, res) => {
     await order.save();
     res.json(order);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
     console.error('Error adding tracking event:', error);
     res.status(500).json({ error: 'Failed to add tracking event' });
   }

@@ -67,9 +67,13 @@ export interface CreateOrderPayload {
 }
 
 export async function createOrder(order: CreateOrderPayload): Promise<Order> {
+  const token = localStorage.getItem('aura_token');
   const res = await fetch(`${API_BASE}/orders`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(order),
   });
   if (!res.ok) throw new Error('Failed to create order');

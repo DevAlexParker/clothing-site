@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './db.js';
@@ -11,15 +13,35 @@ import analyticsRoutes from './routes/analytics.js';
 
 
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 // Middleware
 // The webhook route needs a raw body for Stripe signature verification
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  })
+);
+app.use(express.json({ limit: '100kb' }));
 
 // Routes
 app.use('/api/products', productRoutes);

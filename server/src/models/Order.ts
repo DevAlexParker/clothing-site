@@ -82,10 +82,11 @@ const OrderSchema = new Schema<IOrder>({
   toJSON: {
     virtuals: true,
     transform: (_doc, ret) => {
-      ret.id = ret.orderId;
-      delete ret._id;
-      delete ret.__v;
-      return ret;
+      const safeRet = ret as Record<string, unknown>;
+      safeRet.id = safeRet.orderId;
+      delete safeRet._id;
+      delete safeRet.__v;
+      return safeRet;
     }
   }
 });

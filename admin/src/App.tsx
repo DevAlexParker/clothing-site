@@ -2,8 +2,14 @@ import { useState } from 'react';
 import OrdersView from './components/OrdersView';
 import ProductsView from './components/ProductsView';
 import SalesView from './components/SalesView';
+import { adminLogin, adminLogout, hasAdminToken } from './lib/api';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(hasAdminToken());
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales'>('orders');
 
   const tabTitles = {
@@ -11,6 +17,95 @@ export default function App() {
     inventory: 'Product Inventory',
     sales: 'Sales Analytics',
   };
+
+  const handleAdminLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      await adminLogin(username.trim(), password);
+      setIsAuthenticated(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    adminLogout();
+    setIsAuthenticated(false);
+    setPassword('');
+    setActiveTab('orders');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-slate-950">
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-fuchsia-500/30 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-80 w-80 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-20 h-72 w-72 rounded-full bg-violet-600/30 blur-3xl" />
+
+        <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center justify-center gap-10 p-6">
+          <div className="text-center">
+            <p className="mb-3 inline-flex items-center rounded-full border border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-1 text-xs font-bold tracking-[0.3em] text-fuchsia-100">
+              ADMIN ONLY
+            </p>
+            <h1 className="text-5xl font-black tracking-tight text-white sm:text-6xl">
+              AURA Control Room
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-sm text-slate-300 sm:text-base">
+              Manage orders, inventory, and sales insights from one secure dashboard.
+            </p>
+          </div>
+
+          <section className="w-full max-w-md rounded-3xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+            <h2 className="text-xl font-bold text-white">Sign in to continue</h2>
+            <p className="mt-1 text-sm text-slate-300">Use the admin credentials configured on the server.</p>
+
+            <form className="mt-6 space-y-4" onSubmit={handleAdminLogin}>
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Username</label>
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-300/70 focus:ring-2 focus:ring-fuchsia-300/30"
+                  placeholder="Enter admin username"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+                  placeholder="Enter admin password"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+
+              {authError && <p className="text-sm font-semibold text-red-300">{authError}</p>}
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full rounded-xl bg-linear-to-r from-fuchsia-500 via-violet-500 to-cyan-500 px-4 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {authLoading ? 'Signing In...' : 'Login'}
+              </button>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex">
@@ -71,12 +166,18 @@ export default function App() {
         <div className="p-8 border-t border-gray-50">
           <div className="bg-gray-50 rounded-2xl p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-200 to-gray-100 flex items-center justify-center font-bold text-gray-500">A</div>
+              <div className="w-10 h-10 rounded-full bg-linear-to-tr from-gray-200 to-gray-100 flex items-center justify-center font-bold text-gray-500">A</div>
               <div>
                 <p className="text-xs font-bold text-gray-900">Admin Staff</p>
                 <p className="text-[10px] text-gray-400">Shop Manager</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="mt-4 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </aside>
