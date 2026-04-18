@@ -56,6 +56,11 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       throw new Error();
     }
 
+    if (user.role === 'user' && user.isVerified === false) {
+      res.status(403).json({ error: 'Please verify your email.', code: 'EMAIL_NOT_VERIFIED' });
+      return;
+    }
+
     req.user = user;
     next();
   } catch (error) {

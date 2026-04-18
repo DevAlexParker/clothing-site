@@ -89,6 +89,35 @@ router.post('/', optionalAuthenticate, async (req: AuthRequest, res) => {
 
     await order.save();
 
+    try {
+      const { sendOrderInvoiceEmail } = await import('../lib/mail.js');
+      const o = order.toJSON() as Record<string, unknown>;
+      await sendOrderInvoiceEmail({
+        orderId: String(o.orderId ?? orderId),
+        createdAt: o.createdAt as Date | string | undefined,
+        customerInfo: o.customerInfo as {
+          fullName: string;
+          email: string;
+          addressLine1: string;
+          city: string;
+          postalCode: string;
+        },
+        items: o.items as {
+          productName: string;
+          quantity: number;
+          productPrice: number;
+          selectedSize: string;
+          selectedColor: string;
+        }[],
+        totalAmount: Number(o.totalAmount),
+        paymentMethod: String(o.paymentMethod),
+        paymentStatus: String(o.paymentStatus),
+        status: String(o.status),
+      });
+    } catch (err) {
+      console.error('Order invoice email failed:', err);
+    }
+
     // Decrement stock for each ordered item
     for (const item of items) {
       await Product.findByIdAndUpdate(item.productId, {

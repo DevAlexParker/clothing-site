@@ -231,7 +231,21 @@ export default function App() {
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-200/50 pt-8">
-            <div className="text-xs text-gray-400 font-bold tracking-widest uppercase">© 2026 AURA Clothing. All Rights Reserved.</div>
+            <div className="text-xs text-gray-400 font-bold tracking-widest uppercase text-center md:text-left">
+              © 2026 AURA Clothing. All Rights Reserved.
+              <span className="block md:inline md:ml-2 mt-2 md:mt-0 font-normal normal-case tracking-normal">
+                Developed by{' '}
+                <a
+                  href="https://sofycode.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-gray-600 hover:text-black underline underline-offset-2"
+                >
+                  SofyCode
+                </a>
+                .
+              </span>
+            </div>
             <div className="flex gap-4">
               <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Privacy Policy</a>
               <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Terms of Service</a>
