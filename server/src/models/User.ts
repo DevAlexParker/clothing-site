@@ -7,6 +7,13 @@ export interface IUser extends Document {
   phone?: string;
   role: 'user' | 'admin';
   isVerified: boolean;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  emailVerificationToken?: string;
+  twoFactorSecret?: string;
+  isTwoFactorEnabled: boolean;
+  twoFactorEmailCode?: string;
+  twoFactorEmailCodeExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +25,13 @@ const UserSchema = new Schema<IUser>({
   phone: { type: String },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isVerified: { type: Boolean, default: false },
+  passwordResetToken: { type: String },
+  passwordResetExpires: { type: Date },
+  emailVerificationToken: { type: String },
+  twoFactorSecret: { type: String },
+  isTwoFactorEnabled: { type: Boolean, default: false },
+  twoFactorEmailCode: { type: String },
+  twoFactorEmailCodeExpires: { type: Date },
 }, {
   timestamps: true,
   toJSON: {
@@ -25,6 +39,10 @@ const UserSchema = new Schema<IUser>({
       const safeRet = ret as Record<string, unknown>;
       delete safeRet.password;
       delete safeRet.__v;
+      delete safeRet.passwordResetToken;
+      delete safeRet.emailVerificationToken;
+      delete safeRet.twoFactorSecret;
+      delete safeRet.twoFactorEmailCode;
       return safeRet;
     }
   }

@@ -11,7 +11,7 @@ export interface AdminAuthUser {
   role: 'admin';
 }
 
-export async function adminLogin(username: string, password: string): Promise<AdminAuthUser> {
+export async function adminLogin(username: string, password: string): Promise<AdminAuthUser | { requires2FA: true, userId: string }> {
   const res = await fetch(`${API_BASE}/auth/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -21,6 +21,26 @@ export async function adminLogin(username: string, password: string): Promise<Ad
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || 'Failed to login');
+  }
+
+  if (data.requires2FA) {
+    return { requires2FA: true, userId: data.userId };
+  }
+
+  localStorage.setItem(TOKEN_KEY, data.token);
+  return data.user as AdminAuthUser;
+}
+
+export async function adminLogin2FA(userId: string, otp: string): Promise<AdminAuthUser> {
+  const res = await fetch(`${API_BASE}/auth/login/2fa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, otp }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to verify 2FA');
   }
 
   localStorage.setItem(TOKEN_KEY, data.token);

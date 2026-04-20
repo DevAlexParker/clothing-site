@@ -2,12 +2,15 @@ import { useState } from 'react';
 import OrdersView from './components/OrdersView';
 import ProductsView from './components/ProductsView';
 import SalesView from './components/SalesView';
-import { adminLogin, adminLogout, hasAdminToken } from './lib/api';
+import { adminLogin, adminLogout, adminLogin2FA, hasAdminToken } from './lib/api';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(hasAdminToken());
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales'>('orders');
@@ -24,10 +27,34 @@ export default function App() {
     setAuthLoading(true);
 
     try {
-      await adminLogin(username.trim(), password);
-      setIsAuthenticated(true);
+      const result = await adminLogin(username.trim(), password);
+      // Fixed logic: result might have requires2FA property
+      if (result && 'requires2FA' in result && result.requires2FA) {
+        setRequires2FA(true);
+        setUserId(result.userId);
+      } else {
+        setIsAuthenticated(true);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
+      setAuthError(message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handle2FA = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId) return;
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      await adminLogin2FA(userId, otp);
+      setRequires2FA(false);
+      setIsAuthenticated(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Verification failed';
       setAuthError(message);
     } finally {
       setAuthLoading(false);
@@ -38,6 +65,8 @@ export default function App() {
     adminLogout();
     setIsAuthenticated(false);
     setPassword('');
+    setOtp('');
+    setRequires2FA(false);
     setActiveTab('orders');
   };
 
@@ -65,42 +94,67 @@ export default function App() {
             <h2 className="text-xl font-bold text-white">Sign in to continue</h2>
             <p className="mt-1 text-sm text-slate-300">Use the admin credentials configured on the server.</p>
 
-            <form className="mt-6 space-y-4" onSubmit={handleAdminLogin}>
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Username</label>
-                <input
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-300/70 focus:ring-2 focus:ring-fuchsia-300/30"
-                  placeholder="Enter admin username"
-                  autoComplete="username"
-                  required
-                />
-              </div>
+            {!requires2FA ? (
+              <form className="mt-6 space-y-4" onSubmit={handleAdminLogin}>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Username</label>
+                  <input
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-fuchsia-300/70 focus:ring-2 focus:ring-fuchsia-300/30"
+                    placeholder="Enter admin username"
+                    autoComplete="username"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
-                  placeholder="Enter admin password"
-                  autoComplete="current-password"
-                  required
-                />
-              </div>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+                    placeholder="Enter admin password"
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
 
-              {authError && <p className="text-sm font-semibold text-red-300">{authError}</p>}
+                {authError && <p className="text-sm font-semibold text-red-300">{authError}</p>}
 
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full rounded-xl bg-linear-to-r from-fuchsia-500 via-violet-500 to-cyan-500 px-4 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {authLoading ? 'Signing In...' : 'Login'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-xl bg-linear-to-r from-fuchsia-500 via-violet-500 to-cyan-500 px-4 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {authLoading ? 'Signing In...' : 'Login'}
+                </button>
+              </form>
+            ) : (
+              <form className="mt-6 space-y-4" onSubmit={handle2FA}>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-300">Authentication Code</label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value)}
+                    className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+                    placeholder="Enter 2FA Code"
+                    required
+                  />
+                </div>
+                {authError && <p className="text-sm font-semibold text-red-300">{authError}</p>}
+
+                <button
+                  type="submit"
+                  disabled={authLoading}
+                  className="w-full rounded-xl bg-linear-to-r from-cyan-500 via-violet-500 to-fuchsia-500 px-4 py-3 text-sm font-black uppercase tracking-[0.2em] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {authLoading ? 'Verifying...' : 'Verify'}
+                </button>
+              </form>
+            )}
           </section>
         </main>
       </div>
