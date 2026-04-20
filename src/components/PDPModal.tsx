@@ -30,13 +30,23 @@ export default function PDPModal({ product, onClose, onAddToCart }: PDPModalProp
 
         {/* Image Gallery */}
         <div className="w-full md:w-1/2 p-4 md:p-6 flex flex-col gap-4 bg-gray-50/50">
-          <div className="flex-1 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center relative">
+          <div className="flex-1 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center relative isolate">
             <img 
               src={product.images[selectedImage]} 
               alt={product.name} 
               className={`w-full h-full object-cover transition-opacity duration-300 ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
               loading="lazy"
             />
+            {product.isNewArrival && (
+              <div
+                className="absolute top-0 right-0 z-20 size-28 overflow-hidden pointer-events-none"
+                aria-hidden
+              >
+                <div className="absolute -right-10 top-5 w-44 rotate-45 bg-linear-to-br from-rose-600 via-rose-500 to-orange-400 text-white text-[11px] font-black tracking-[0.28em] uppercase py-2 pl-12 text-center shadow-[0_2px_10px_rgba(0,0,0,0.35)] border-y border-white/20">
+                  New
+                </div>
+              </div>
+            )}
             {/* Stock badges on image */}
             {isLowStock && (
               <div className="absolute top-4 left-4 px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 animate-pulse">

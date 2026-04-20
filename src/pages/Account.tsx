@@ -23,6 +23,8 @@ export default function Account() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -42,6 +44,32 @@ export default function Account() {
       if (intervalId) clearInterval(intervalId);
     };
   }, [user, activeTab]);
+
+  const requestPasswordReset = async () => {
+    if (!user?.email) return;
+    setResetLoading(true);
+    setResetMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Request failed');
+      setResetMessage({
+        type: 'ok',
+        text: (data as { message?: string }).message || 'Check your email for a reset link.',
+      });
+    } catch (err) {
+      setResetMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Something went wrong.',
+      });
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const fetchUserOrders = async (showLoading = true) => {
     if (showLoading && orders.length === 0) setLoadingOrders(true);
@@ -288,8 +316,20 @@ export default function Account() {
 
                 <div className="mt-12 pt-12 border-t border-gray-100">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Security</h3>
-                    <button className="text-sm font-bold text-gray-500 hover:text-black transition-colors">RESET PASSWORD →</button>
+                    <button
+                      type="button"
+                      onClick={requestPasswordReset}
+                      disabled={resetLoading}
+                      className="text-sm font-bold text-gray-500 hover:text-black transition-colors disabled:opacity-50"
+                    >
+                      {resetLoading ? 'SENDING…' : 'RESET PASSWORD →'}
+                    </button>
                     <p className="text-xs text-gray-400 mt-2">A reset link will be sent to your registered email.</p>
+                    {resetMessage && (
+                      <p className={`text-xs mt-2 font-medium ${resetMessage.type === 'ok' ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {resetMessage.text}
+                      </p>
+                    )}
                 </div>
               </div>
             )}

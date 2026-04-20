@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Product } from './data';
 import Navbar from './components/Navbar';
 import CartFlyout from './components/CartFlyout';
@@ -10,6 +10,7 @@ import Home from './pages/Home';
 import Collections from './pages/Collections';
 import About from './pages/About';
 import Account from './pages/Account';
+import ResetPassword from './pages/ResetPassword';
 
 
 
@@ -22,6 +23,7 @@ interface CartItem {
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [resetPasswordToken, setResetPasswordToken] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -35,6 +37,16 @@ export default function App() {
     setCurrentPage(page);
     window.scrollTo(0, 0);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('resetPasswordToken');
+    if (t) {
+      setResetPasswordToken(t);
+      setCurrentPage('reset-password');
+      window.history.replaceState({}, '', window.location.pathname || '/');
+    }
+  }, []);
 
   const handleAddToCart = (product: Product, size: string, color: string) => {
     // Defensive: Normalize the product ID (could be .id or ._id depending on origin)
@@ -141,6 +153,15 @@ export default function App() {
         {currentPage === 'new-arrivals' && <Collections key="new-arrivals" onProductClick={setSelectedProduct} initialFilter="new-arrivals" />}
         {currentPage === 'about' && <About />}
         {currentPage === 'account' && <Account />}
+        {currentPage === 'reset-password' && resetPasswordToken && (
+          <ResetPassword
+            token={resetPasswordToken}
+            onDone={() => {
+              setResetPasswordToken(null);
+              navigate('home');
+            }}
+          />
+        )}
 
 
         {currentPage === 'checkout' && shippingInfo && (
@@ -210,7 +231,21 @@ export default function App() {
             </div>
           </div>
           <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-4 border-t border-gray-200/50 pt-8">
-            <div className="text-xs text-gray-400 font-bold tracking-widest uppercase">© 2026 AURA Clothing. All Rights Reserved.</div>
+            <div className="text-xs text-gray-400 font-bold tracking-widest uppercase text-center md:text-left">
+              © 2026 AURA Clothing. All Rights Reserved.
+              <span className="block md:inline md:ml-2 mt-2 md:mt-0 font-normal normal-case tracking-normal">
+                Developed by{' '}
+                <a
+                  href="https://sofycode.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-gray-600 hover:text-black underline underline-offset-2"
+                >
+                  SofyCode
+                </a>
+                .
+              </span>
+            </div>
             <div className="flex gap-4">
               <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Privacy Policy</a>
               <a href="#" className="text-xs text-gray-400 hover:text-black transition-colors">Terms of Service</a>

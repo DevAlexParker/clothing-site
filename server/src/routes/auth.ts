@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -7,7 +8,11 @@ import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { User } from '../models/User.js';
 import { authenticate, type AuthRequest } from '../middleware/auth.js';
+<<<<<<< HEAD
 import { sendEmail } from '../utils/email.js';
+=======
+import { sendVerificationCodeEmail } from '../lib/mail.js';
+>>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -49,6 +54,28 @@ const adminLoginSchema = z.object({
   password: z.string().min(1).max(255),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(16).max(256),
+  password: z.string().min(8).max(128),
+});
+
+const verifyEmailSchema = z.object({
+  email: z.string().trim().email().max(255),
+  code: z.string().trim().regex(/^\d{6}$/),
+});
+
+const resendVerificationSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+function generateSixDigitCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 const getAdminCredentials = () => {
   const username = process.env.ADMIN_USERNAME?.trim();
   const password = process.env.ADMIN_PASSWORD?.trim();
@@ -73,16 +100,26 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
 
+    const code = generateSixDigitCode();
+    const codeHash = await bcrypt.hash(code, 10);
+
     const user = new User({
       name,
       email: normalizedEmail,
       password: hashedPassword,
       phone,
+<<<<<<< HEAD
       emailVerificationToken,
+=======
+      isVerified: false,
+      emailVerificationCodeHash: codeHash,
+      emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
+>>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
     });
 
     await user.save();
 
+<<<<<<< HEAD
     await sendEmail(
       normalizedEmail,
       'AURA Clothing - Verify your email',
@@ -91,6 +128,19 @@ router.post('/register', async (req, res) => {
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ user, token, message: 'Please verify your email.' });
+=======
+    try {
+      await sendVerificationCodeEmail(normalizedEmail, code, name);
+    } catch (err) {
+      console.error('Verification email failed:', err);
+    }
+
+    res.status(201).json({
+      requiresVerification: true,
+      email: normalizedEmail,
+      message: 'Enter the 6-digit code sent to your email to activate your account.',
+    });
+>>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: (error as any).errors[0].message });
@@ -139,9 +189,21 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user.isVerified) {
+<<<<<<< HEAD
       res.status(403).json({ error: 'Please verify your email first by entering your token.' });
       return;
     }
+=======
+      res.status(403).json({
+        error: 'Please verify your email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: normalizedEmail,
+      });
+      return;
+    }
+
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+>>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
 
     if (user.isTwoFactorEnabled) {
       return res.json({ requires2FA: true, userId: user._id });
@@ -397,6 +459,182 @@ router.patch('/update', authenticate, async (req: AuthRequest, res) => {
       return;
     }
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = forgotPasswordSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail });
+    const generic = { message: 'If an account exists for that email, a reset link has been sent.' };
+
+    if (!user) {
+      res.json(generic);
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    user.passwordResetToken = hash;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const baseUrl = (process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(
+      /\/$/,
+      ''
+    );
+    const resetUrl = `${baseUrl}/?resetPasswordToken=${encodeURIComponent(token)}`;
+
+    try {
+      const { sendPasswordResetEmail } = await import('../lib/mail.js');
+      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+    } catch (err) {
+      console.error('Failed to send reset email:', err);
+    }
+
+    res.json(generic);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to send reset email' });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = resetPasswordSchema.parse(req.body);
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hash,
+      passwordResetExpires: { $gt: new Date() },
+    }).select('+passwordResetToken +passwordResetExpires +password');
+
+    if (!user) {
+      res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+      return;
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    const tokenJwt = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({
+      token: tokenJwt,
+      user: user.toJSON(),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// POST /api/auth/verify-email
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { email, code } = verifyEmailSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      '+emailVerificationCodeHash +emailVerificationExpires'
+    );
+
+    if (!user) {
+      res.status(400).json({ error: 'Account not found.' });
+      return;
+    }
+
+    if (user.isVerified) {
+      const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+      res.json({ user: user.toJSON(), token, alreadyVerified: true });
+      return;
+    }
+
+    if (!user.emailVerificationCodeHash || !user.emailVerificationExpires) {
+      res.status(400).json({ error: 'No verification pending. Please sign up again.' });
+      return;
+    }
+
+    if (user.emailVerificationExpires.getTime() < Date.now()) {
+      res.status(400).json({ error: 'Code expired. Use “Resend code”.', code: 'CODE_EXPIRED' });
+      return;
+    }
+
+    const match = await bcrypt.compare(code, user.emailVerificationCodeHash);
+    if (!match) {
+      res.status(400).json({ error: 'Invalid code. Try again.' });
+      return;
+    }
+
+    user.isVerified = true;
+    user.emailVerificationCodeHash = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ user: user.toJSON(), token });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Verify email error:', error);
+    res.status(500).json({ error: 'Failed to verify email' });
+  }
+});
+
+// POST /api/auth/resend-verification
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { email } = resendVerificationSchema.parse(req.body);
+    const normalizedEmail = email.toLowerCase();
+
+    const generic = {
+      message: 'If an account exists and needs verification, a new code was sent.',
+    };
+
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      '+emailVerificationCodeHash +emailVerificationExpires'
+    );
+
+    if (!user || user.isVerified) {
+      res.json(generic);
+      return;
+    }
+
+    const code = generateSixDigitCode();
+    user.emailVerificationCodeHash = await bcrypt.hash(code, 10);
+    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    try {
+      await sendVerificationCodeEmail(normalizedEmail, code, user.name);
+    } catch (err) {
+      console.error('Resend verification email failed:', err);
+    }
+
+    res.json(generic);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid request payload' });
+      return;
+    }
+    console.error('Resend verification error:', error);
+    res.status(500).json({ error: 'Failed to resend code' });
   }
 });
 

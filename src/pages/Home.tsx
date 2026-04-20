@@ -80,7 +80,7 @@ export default function Home({ onProductClick, navigate }: HomeProps) {
             <img src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=2000" alt="AURA brand lifestyle editorial featuring modern wardrobe staples" className="w-full h-full object-cover object-center grayscale hover:grayscale-0 transition-all duration-1000" loading="lazy" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-12">
               <h3 className="text-4xl text-white font-bold mb-4">Redefining Wardrobe Staples.</h3>
-              <button onClick={() => navigate('about')} className="self-start glass-panel bg-white/20 text-white border-white/30 hover:bg-white hover:text-black px-6 py-3 rounded-full text-sm font-bold tracking-widest transition-all">
+              <button onClick={() => navigate('about')} className="self-start bg-white text-gray-900 border border-white/80 hover:bg-gray-50 px-6 py-3 rounded-full text-sm font-bold tracking-widest transition-all shadow-sm">
                 OUR STORY
               </button>
             </div>
