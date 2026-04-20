@@ -108,7 +108,7 @@ router.post('/register', authRateLimiter, blockDisposableEmail, async (req, res)
       message: 'Verification code sent to your email.',
     });
   } catch (error) {
-    if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors[0].message });
+    if (error instanceof z.ZodError) return res.status(400).json({ error: error.issues[0]?.message || 'Invalid request data' });
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -223,6 +223,9 @@ router.post('/verify-email', async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() }).select('+emailVerificationCodeHash +emailVerificationExpires');
     if (!user) return res.status(400).json({ error: 'User not found' });
 
+    if (!user.emailVerificationExpires || !user.emailVerificationCodeHash) {
+      return res.status(400).json({ error: 'No active verification code. Please request a new one.' });
+    }
     if (user.emailVerificationExpires < new Date()) return res.status(400).json({ error: 'Code expired' });
     if (!(await bcrypt.compare(code, user.emailVerificationCodeHash))) return res.status(400).json({ error: 'Invalid code' });
 

@@ -3,7 +3,7 @@ import OrdersView from './components/OrdersView';
 import ProductsView from './components/ProductsView';
 import SalesView from './components/SalesView';
 import SecurityLogsView from './components/SecurityLogsView';
-import { adminLogin, adminLogout, adminLogin2FA, hasAdminToken, adminRegister, adminForgotPassword } from './lib/api';
+import { adminLogin, adminLogout, adminLogin2FA, hasAdminToken, adminRegister, adminForgotPassword, deleteAdminAccount } from './lib/api';
 import AdminNotifications from './components/AdminNotifications';
 
 type AuthStage = 'login' | 'signup' | 'forgot' | '2fa' | 'verify';
@@ -18,7 +18,6 @@ export default function App() {
   const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
-  const [pendingEmail, setPendingEmail] = useState('');
 
   const [authError, setAuthError] = useState('');
   const [authInfo, setAuthInfo] = useState('');
@@ -61,7 +60,6 @@ export default function App() {
     try {
       const result = await adminRegister(name, username, password);
       if (result.requiresVerification) {
-        setPendingEmail(username);
         setStage('verify');
         setAuthInfo('Verification code sent to your email.');
       }
@@ -247,9 +245,10 @@ export default function App() {
             </button>
             <button
               onClick={handleDeleteAccount}
+              disabled={deleteLoading}
               className="mt-2 w-full text-[9px] font-bold uppercase tracking-widest text-red-500/60 hover:text-red-600 transition-colors"
             >
-              Delete Account
+              {deleteLoading ? 'Deleting Account...' : 'Delete Account'}
             </button>
           </div>
         </div>
