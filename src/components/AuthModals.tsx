@@ -7,7 +7,7 @@ interface AuthModalProps {
   initialType: 'login' | 'signup';
 }
 
-type Flow = 'login' | 'signup' | 'verify';
+type Flow = 'login' | 'signup' | 'verify' | 'forgot';
 
 export default function AuthModals({ isOpen, onClose, initialType }: AuthModalProps) {
   const [flow, setFlow] = useState<Flow>('login');
@@ -44,8 +44,7 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
     setLoading(true);
 
     const endpoint = type === 'login' ? '/auth/login' : '/auth/register';
-    const payload =
-      type === 'login' ? { email, password } : { name, email, password, phone };
+    const payload = type === 'login' ? { email, password } : { name, email, password, phone };
 
     try {
       const res = await fetch(`${API_URL}${endpoint}`, {
@@ -55,16 +54,15 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         if (res.status === 403 && data.code === 'EMAIL_NOT_VERIFIED') {
           setPendingEmail(data.email || email);
           setFlow('verify');
-          setInfo('Enter the code sent to your email to finish signing in.');
+          setInfo('Enter the code sent to your email.');
           setLoading(false);
           return;
         }
-        throw new Error(data.error || 'Something went wrong');
+        throw new Error(data.error || 'Request failed');
       }
 
       if (type === 'signup' && data.requiresVerification) {
@@ -77,8 +75,8 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
 
       authLogin(data.token, data.user);
       onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -87,43 +85,40 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setInfo('');
     setLoading(true);
-
     try {
       const res = await fetch(`${API_URL}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: pendingEmail, code: verifyCode.trim() }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
-
       authLogin(data.token, data.user);
       onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
     setInfo('');
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/resend-verification`, {
+      const res = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail }),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not resend');
-      setInfo(data.message || 'A new code was sent.');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Could not resend');
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      setInfo(data.message || 'Check your email for a reset link.');
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -132,160 +127,74 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
+      <div className="glass-card w-full max-w-md relative z-10 p-10 rounded-[2.5rem] border border-white/50 animate-fade-up">
+        <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black">✕</button>
 
-      <div className="glass-card w-full max-w-md relative z-10 p-8 sm:p-10 rounded-[2.5rem] border border-white/50 animate-fade-up overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-200/20 rounded-full blur-3xl" />
+        {flow === 'verify' ? (
+          <div className="text-center">
+            <h2 className="text-2xl font-black mb-2">Verify Email</h2>
+            <p className="text-gray-500 text-sm mb-6">Code sent to {pendingEmail}</p>
+            <form onSubmit={handleVerify} className="space-y-4">
+              <input 
+                type="text" maxLength={6} placeholder="000000" 
+                value={verifyCode} onChange={e => setVerifyCode(e.target.value)} 
+                className="w-full glass-panel px-6 py-4 rounded-2xl text-center font-mono text-xl tracking-[0.3em] outline-none"
+              />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              {info && <p className="text-xs text-emerald-600">{info}</p>}
+              <button disabled={loading} className="w-full glass-dark py-4 rounded-full font-bold tracking-widest">VERIFY</button>
+              <button type="button" onClick={() => setFlow('login')} className="text-xs text-gray-400">Back to Login</button>
+            </form>
+          </div>
+        ) : flow === 'forgot' ? (
+          <div className="text-center">
+            <h2 className="text-2xl font-black mb-2">Forgot Password</h2>
+            <p className="text-gray-500 text-sm mb-6">Enter your email to receive a reset link.</p>
+            <form onSubmit={handleForgot} className="space-y-4">
+              <input 
+                type="email" placeholder="Email Address" required
+                value={email} onChange={e => setEmail(e.target.value)} 
+                className="w-full glass-panel px-6 py-4 rounded-2xl text-sm outline-none"
+              />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              {info && <p className="text-xs text-emerald-600">{info}</p>}
+              <button disabled={loading} className="w-full glass-dark py-4 rounded-full font-bold tracking-widest">SEND RESET LINK</button>
+              <button type="button" onClick={() => setFlow('login')} className="text-xs text-gray-400">Back to Login</button>
+            </form>
+          </div>
+        ) : (
+          <div>
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black tracking-tight text-gray-900 mb-2">{type === 'login' ? 'Welcome Back' : 'Join AURA'}</h2>
+              <p className="text-gray-500 text-sm">{type === 'login' ? 'Sign in to access your profile' : 'Create an account for a tailored experience'}</p>
+            </div>
+            <form onSubmit={handleLoginSignup} className="space-y-4">
+              {type === 'signup' && (
+                <>
+                  <input type="text" placeholder="Name" required value={name} onChange={e => setName(e.target.value)} className="w-full glass-panel px-6 py-4 rounded-2xl text-sm" />
+                  <input type="tel" placeholder="Phone (Optional)" value={phone} onChange={e => setPhone(e.target.value)} className="w-full glass-panel px-6 py-4 rounded-2xl text-sm" />
+                </>
+              )}
+              <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full glass-panel px-6 py-4 rounded-2xl text-sm" />
+              <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full glass-panel px-6 py-4 rounded-2xl text-sm" />
+              
+              {type === 'login' && (
+                <div className="text-right">
+                  <button type="button" onClick={() => setFlow('forgot')} className="text-xs text-gray-400 hover:text-black">Forgot Password?</button>
+                </div>
+              )}
 
-        <div className="relative z-10">
-          <button
-            onClick={onClose}
-            className="absolute top-0 right-0 p-2 text-gray-400 hover:text-black transition-colors"
-          >
-            ✕
-          </button>
-
-          {flow === 'verify' ? (
-            <>
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-black tracking-tight text-gray-900 mb-2">Verify your email</h2>
-                <p className="text-gray-500 text-sm">
-                  We sent a 6-digit code to{' '}
-                  <span className="font-semibold text-gray-800">{pendingEmail}</span>
-                </p>
-              </div>
-
-              <form onSubmit={handleVerify} className="space-y-4">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  placeholder="000000"
-                  value={verifyCode}
-                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  required
-                  className="w-full glass-panel px-6 py-4 rounded-2xl text-sm tracking-[0.4em] text-center text-lg font-mono outline-none focus:ring-2 focus:ring-black/10"
-                  autoComplete="one-time-code"
-                />
-
-                {error && (
-                  <p className="text-xs text-red-500 text-center font-medium animate-shake">{error}</p>
-                )}
-                {info && !error && (
-                  <p className="text-xs text-emerald-600 text-center font-medium">{info}</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading || verifyCode.length !== 6}
-                  className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] shadow-xl transition-all disabled:opacity-50"
-                >
-                  {loading ? 'VERIFYING...' : 'VERIFY & CONTINUE'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={loading}
-                  className="w-full text-sm font-bold text-gray-500 hover:text-black py-2"
-                >
-                  Resend code
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFlow(type === 'signup' ? 'signup' : 'login');
-                    setVerifyCode('');
-                    setError('');
-                  }}
-                  className="w-full text-xs text-gray-400 hover:text-gray-600"
-                >
-                  ← Back
-                </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-black tracking-tight text-gray-900 mb-2">
-                  {type === 'login' ? 'Welcome Back' : 'Join AURA'}
-                </h2>
-                <p className="text-gray-500 text-sm">
-                  {type === 'login'
-                    ? 'Enter your details to access your account'
-                    : 'Meticulously crafted staples for a modern wardrobe'}
-                </p>
-              </div>
-
-              <form onSubmit={handleLoginSignup} className="space-y-4">
-                {type === 'signup' && (
-                  <div className="space-y-4 animate-fade-in">
-                    <input
-                      type="text"
-                      placeholder="Full Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-black/10 focus:bg-white/90 transition-all font-medium"
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Phone Number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-black/10 focus:bg-white/90 transition-all font-medium"
-                    />
-                  </div>
-                )}
-
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full glass-panel px-6 py-4 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-black/10 focus:bg-white/90 transition-all font-medium"
-                />
-
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full glass-panel px-6 py-4 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-black/10 focus:bg-white/90 transition-all font-medium"
-                />
-
-                {error && (
-                  <p className="text-xs text-red-500 text-center font-medium animate-shake">{error}</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest hover:bg-black/90 hover:scale-[1.02] shadow-xl transition-all disabled:opacity-50"
-                >
-                  {loading ? 'PROCESSING...' : type === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}
-                </button>
-              </form>
-
-              <div className="mt-8 text-center pt-6 border-t border-gray-100">
-                <p className="text-sm text-gray-500">
-                  {type === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
-                  <button
-                    type="button"
-                    onClick={() => setType(type === 'login' ? 'signup' : 'login')}
-                    className="text-black font-bold hover:underline"
-                  >
-                    {type === 'login' ? 'Sign Up' : 'Sign In'}
-                  </button>
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+              {error && <p className="text-xs text-red-500 text-center animate-shake">{error}</p>}
+              <button disabled={loading} className="w-full glass-dark py-4 rounded-full text-sm font-bold tracking-widest outline-none">{loading ? '...' : type === 'login' ? 'SIGN IN' : 'SIGN UP'}</button>
+            </form>
+            <div className="mt-8 text-center pt-6 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                {type === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
+                <button onClick={() => setType(type === 'login' ? 'signup' : 'login')} className="text-black font-bold hover:underline">{type === 'login' ? 'Sign Up' : 'Sign In'}</button>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

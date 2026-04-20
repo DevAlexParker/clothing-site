@@ -11,14 +11,16 @@ import authRoutes from './routes/auth.js';
 
 import analyticsRoutes from './routes/analytics.js';
 import adminRoutes from './routes/admin.js';
-
-
+import cookieParser from 'cookie-parser';
+import { securityHeaders } from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
+app.use(securityHeaders);
+app.use(cookieParser());
 const PORT = process.env.PORT || 5000;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -58,6 +60,14 @@ app.use('/api/admin', adminRoutes);
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Global Error Handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+  });
 });
 
 // Start server

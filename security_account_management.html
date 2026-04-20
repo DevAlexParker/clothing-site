@@ -1,0 +1,159 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1rem 0;font-family:var(--font-sans)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1.25rem}
+.tab{padding:6px 14px;border-radius:20px;font-size:13px;border:0.5px solid var(--color-border-secondary);cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);transition:all .15s}
+.tab.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.card:hover{border-color:var(--color-border-secondary)}
+.card-top{display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.card-title{font-size:13px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.card-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+.badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;align-self:flex-start;margin-top:2px}
+.b-critical{background:#FCEBEB;color:#A32D2D}
+.b-must{background:#FAECE7;color:#993C1D}
+.b-admin{background:#E1F5EE;color:#0F6E56}
+.b-new{background:#E6F1FB;color:#185FA5}
+.b-comp{background:#EEEDFE;color:#3C3489}
+.count{font-size:12px;color:var(--color-text-tertiary);margin-bottom:4px}
+.priority-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:10px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+</style>
+<div class="wrap">
+  <div class="priority-bar">
+    <span class="pill" style="background:#FCEBEB;color:#A32D2D;border-color:#F09595">Critical — implement day 1</span>
+    <span class="pill" style="background:#FAECE7;color:#993C1D;border-color:#F0997B">Must have</span>
+    <span class="pill" style="background:#E1F5EE;color:#0F6E56;border-color:#5DCAA5">Admin protection</span>
+    <span class="pill" style="background:#E6F1FB;color:#185FA5;border-color:#85B7EB">Advanced</span>
+    <span class="pill" style="background:#EEEDFE;color:#3C3489;border-color:#AFA9EC">Compliance</span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="count" id="count"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+const cats={
+  "All":null,
+  "Registration & Login":"#378ADD",
+  "Password & Auth":"#7F77DD",
+  "Session Management":"#1D9E75",
+  "Admin Security":"#D85A30",
+  "Data Protection":"#BA7517",
+  "Fraud & Abuse":"#D4537E",
+  "Compliance":"#639922"
+};
+
+const features=[
+  // Registration & Login
+  {cat:"Registration & Login",title:"Email Verification on Signup",desc:"Send a confirmation link before account is activated. Blocks fake/bot registrations.",badge:"critical"},
+  {cat:"Registration & Login",title:"Phone OTP Verification",desc:"Optional SMS OTP on signup or login. Adds a second identity proof layer for customers.",badge:"must"},
+  {cat:"Registration & Login",title:"OAuth Social Login",desc:"Sign in with Google or Facebook. Reduces friction and delegates password security to big providers.",badge:"must"},
+  {cat:"Registration & Login",title:"Duplicate Account Detection",desc:"Detect if email already exists. Show 'login instead?' prompt rather than silent duplicate creation.",badge:"critical"},
+  {cat:"Registration & Login",title:"Strong Password Enforcement",desc:"Min 8 chars, require uppercase + number or special char. Visual strength meter on input.",badge:"critical"},
+  {cat:"Registration & Login",title:"CAPTCHA on Signup & Login",desc:"Google reCAPTCHA v3 (invisible) or hCaptcha blocks bots from creating bulk fake accounts.",badge:"must"},
+  {cat:"Registration & Login",title:"Account Merge Prevention",desc:"Prevent two accounts with same email via different auth methods (Google + email) from conflicting.",badge:"must"},
+  {cat:"Registration & Login",title:"Disposable Email Blocker",desc:"Reject temp-mail addresses (mailinator, guerrilla mail) to ensure real user contact.",badge:"must"},
+
+  // Password & Auth
+  {cat:"Password & Auth",title:"Bcrypt Password Hashing",desc:"Never store plain text passwords. Use bcrypt or Argon2 with salt. Industry standard since day 1.",badge:"critical"},
+  {cat:"Password & Auth",title:"Two-Factor Authentication (2FA)",desc:"TOTP app (Google Authenticator) or email/SMS code as second login factor. Optional for users, mandatory for admins.",badge:"must"},
+  {cat:"Password & Auth",title:"Secure Password Reset Flow",desc:"Time-limited reset link (15 min expiry) sent to email. Invalidates previous links. No security questions.",badge:"critical"},
+  {cat:"Password & Auth",title:"Breached Password Check",desc:"Check new passwords against HaveIBeenPwned database on signup or change.",badge:"advanced"},
+  {cat:"Password & Auth",title:"Password History Block",desc:"Prevent reuse of last 5 passwords. Forces genuine rotation instead of cycling.",badge:"advanced"},
+  {cat:"Password & Auth",title:"Login Attempt Rate Limiting",desc:"Lock account for 15 mins after 5 failed attempts. Show CAPTCHA after 3 failures.",badge:"critical"},
+  {cat:"Password & Auth",title:"Passkey / Biometric Login",desc:"WebAuthn standard — let users login with Face ID, fingerprint, or device PIN. No password needed.",badge:"advanced"},
+  {cat:"Password & Auth",title:"Magic Link Login",desc:"Passwordless option — send a one-click login link to email. Especially good for mobile.",badge:"advanced"},
+
+  // Session Management
+  {cat:"Session Management",title:"JWT + Refresh Token Auth",desc:"Short-lived access tokens (15 min) + long-lived refresh tokens. Compromised tokens expire fast.",badge:"critical"},
+  {cat:"Session Management",title:"Secure Cookie Flags",desc:"Set HttpOnly, Secure, and SameSite=Strict on session cookies. Blocks XSS and CSRF attacks.",badge:"critical"},
+  {cat:"Session Management",title:"Auto Session Timeout",desc:"Log out inactive sessions after 30 min (configurable). Warn user 2 min before expiry.",badge:"must"},
+  {cat:"Session Management",title:"Active Sessions Dashboard",desc:"Users can see all logged-in devices (browser, OS, location, last active) and revoke any.",badge:"must"},
+  {cat:"Session Management",title:"Logout All Devices",desc:"One-click invalidate all active sessions — critical after password change or suspicious activity.",badge:"must"},
+  {cat:"Session Management",title:"Remember Me (Trusted Devices)",desc:"30-day persistent login for trusted devices. Separate token from regular session.",badge:"must"},
+  {cat:"Session Management",title:"New Device Login Alert",desc:"Email user when login is detected from a new browser or location. With 'not me?' revoke link.",badge:"must"},
+  {cat:"Session Management",title:"Concurrent Session Limit",desc:"Optionally cap sessions to 3 devices. New login on device 4 logs out the oldest session.",badge:"advanced"},
+
+  // Admin Security
+  {cat:"Admin Security",title:"Mandatory 2FA for Admins",desc:"All admin and staff accounts must have 2FA enabled — no exceptions. Block panel access otherwise.",badge:"critical"},
+  {cat:"Admin Security",title:"Role-Based Access Control",desc:"Super Admin, Store Manager, Warehouse Staff, Support Rep — each has scoped panel permissions.",badge:"critical"},
+  {cat:"Admin Security",title:"Admin Action Audit Log",desc:"Every action logged: who changed what, when, from which IP. Tamper-proof and searchable.",badge:"critical"},
+  {cat:"Admin Security",title:"IP Allowlist for Admin Panel",desc:"Restrict admin login to specific IP addresses or ranges. Unknown IPs blocked even with valid creds.",badge:"admin"},
+  {cat:"Admin Security",title:"Admin Login Notifications",desc:"Instant email/SMS to owner when any admin account logs in — even if legitimate.",badge:"admin"},
+  {cat:"Admin Security",title:"Separate Admin Subdomain",desc:"Admin panel on admin.yourstore.com, not /admin. Harder to discover and attack.",badge:"admin"},
+  {cat:"Admin Security",title:"Privilege Escalation Confirm",desc:"Re-authenticate before destructive actions — bulk delete, refunds over threshold, export data.",badge:"admin"},
+  {cat:"Admin Security",title:"Staff Account Suspension",desc:"One-click deactivate a staff account without deleting data. Useful when employee leaves.",badge:"admin"},
+
+  // Data Protection
+  {cat:"Data Protection",title:"HTTPS Everywhere + HSTS",desc:"Force HTTPS on all pages. HSTS header prevents downgrade attacks. SSL auto-renew via Let's Encrypt.",badge:"critical"},
+  {cat:"Data Protection",title:"PII Encryption at Rest",desc:"Encrypt phone numbers, addresses, and payment info in the database. Keys stored separately.",badge:"critical"},
+  {cat:"Data Protection",title:"SQL Injection Prevention",desc:"Use parameterized queries / ORM. Never build SQL strings from user input.",badge:"critical"},
+  {cat:"Data Protection",title:"XSS Protection",desc:"Sanitize all user-generated content (reviews, addresses). Content Security Policy headers.",badge:"critical"},
+  {cat:"Data Protection",title:"CSRF Tokens",desc:"Every state-changing form includes a per-session CSRF token to block cross-site request forgery.",badge:"critical"},
+  {cat:"Data Protection",title:"Data Minimization",desc:"Only collect fields you actually use. Don't store card numbers — use tokenized payment gateway.",badge:"must"},
+  {cat:"Data Protection",title:"Right to Delete (Account Erasure)",desc:"Users can permanently delete their account and all associated data from their profile settings.",badge:"comp"},
+  {cat:"Data Protection",title:"Data Export (Portability)",desc:"Users can download all their data — orders, addresses, wishlist — in JSON or CSV.",badge:"comp"},
+
+  // Fraud & Abuse
+  {cat:"Fraud & Abuse",title:"Device Fingerprinting",desc:"Track device signatures to detect when banned users re-register with a new email.",badge:"advanced"},
+  {cat:"Fraud & Abuse",title:"Velocity Checks on Orders",desc:"Flag accounts placing 5+ orders in 10 minutes. Auto-hold for manual review.",badge:"must"},
+  {cat:"Fraud & Abuse",title:"Address Validation",desc:"Verify shipping addresses against postal database to catch fake or incomplete entries.",badge:"must"},
+  {cat:"Fraud & Abuse",title:"Coupon Abuse Detection",desc:"Detect one-use codes being reused via new accounts from same device/IP.",badge:"must"},
+  {cat:"Fraud & Abuse",title:"Fake Review Detection",desc:"Flag reviews from new accounts, similar IPs, or with suspicious patterns. Queue for admin review.",badge:"advanced"},
+  {cat:"Fraud & Abuse",title:"Account Takeover Alerts",desc:"Detect unusual activity — new address + large order from unfamiliar location — and flag for review.",badge:"advanced"},
+  {cat:"Fraud & Abuse",title:"Geo-block Suspicious Regions",desc:"Admin can block signups or orders from high-fraud countries or IP ranges.",badge:"advanced"},
+  {cat:"Fraud & Abuse",title:"Chargeback Risk Scoring",desc:"Score each order by fraud risk (new account + expensive item + new address = high risk).",badge:"advanced"},
+
+  // Compliance
+  {cat:"Compliance",title:"GDPR Cookie Consent Banner",desc:"Categorized consent — necessary, analytics, marketing. Store consent records with timestamp.",badge:"comp"},
+  {cat:"Compliance",title:"Privacy Policy + Terms Pages",desc:"Auto-generated pages with your store details. User must accept on signup — logged with timestamp.",badge:"comp"},
+  {cat:"Compliance",title:"Age Verification Gate",desc:"Optional — required for stores selling age-restricted items. DOB gate on landing.",badge:"comp"},
+  {cat:"Compliance",title:"Marketing Consent at Signup",desc:"Explicit opt-in checkbox for email/SMS marketing. Separate from account terms. Unsubscribe tracked.",badge:"comp"},
+  {cat:"Compliance",title:"Breach Notification System",desc:"If data breach detected, admin gets instant alert. System can auto-lock accounts and notify affected users.",badge:"comp"},
+  {cat:"Compliance",title:"PCI DSS Compliance Layer",desc:"Never store raw card data. Integrate Stripe/PayHere as tokenized gateway. Document compliance posture.",badge:"comp"},
+];
+
+let active="All";
+const tabsEl=document.getElementById("tabs");
+const gridEl=document.getElementById("grid");
+const countEl=document.getElementById("count");
+
+const badgeMap={critical:"b-critical",must:"b-must",admin:"b-admin",advanced:"b-new",comp:"b-comp"};
+const badgeLabel={critical:"Critical",must:"Must have",admin:"Admin only",advanced:"Advanced",comp:"Compliance"};
+
+function render(){
+  const filtered=active==="All"?features:features.filter(f=>f.cat===active);
+  countEl.textContent=`${filtered.length} features`;
+  gridEl.innerHTML=filtered.map(f=>{
+    const color=cats[f.cat]||"#888";
+    const bc=badgeMap[f.badge]||"b-new";
+    const bl=badgeLabel[f.badge]||f.badge;
+    return `<div class="card">
+      <div class="card-top">
+        <div class="dot" style="background:${color}"></div>
+        <span class="card-title">${f.title}</span>
+      </div>
+      <div class="card-desc">${f.desc}</div>
+      <span class="badge ${bc}">${bl}</span>
+    </div>`;
+  }).join("");
+}
+
+Object.keys(cats).forEach(cat=>{
+  const btn=document.createElement("button");
+  btn.className="tab"+(cat==="All"?" active":"");
+  const count=cat==="All"?features.length:features.filter(f=>f.cat===cat).length;
+  btn.textContent=`${cat} (${count})`;
+  btn.onclick=()=>{
+    active=cat;
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  };
+  tabsEl.appendChild(btn);
+});
+render();
+</script>

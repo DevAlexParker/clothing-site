@@ -18,9 +18,11 @@ export async function adminLogin(username: string, password: string): Promise<Ad
     body: JSON.stringify({ username, password }),
   });
 
-  const data = await res.json();
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  const data = isJson ? await res.json() : null;
+
   if (!res.ok) {
-    throw new Error(data.error || 'Failed to login');
+    throw new Error(data?.error || `Server Error (${res.status}): ${res.statusText}`);
   }
 
   if (data.requires2FA) {
@@ -38,9 +40,11 @@ export async function adminLogin2FA(userId: string, otp: string): Promise<AdminA
     body: JSON.stringify({ userId, otp }),
   });
 
-  const data = await res.json();
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  const data = isJson ? await res.json() : null;
+
   if (!res.ok) {
-    throw new Error(data.error || 'Failed to verify 2FA');
+    throw new Error(data?.error || `Verification failed (${res.status})`);
   }
 
   localStorage.setItem(TOKEN_KEY, data.token);
@@ -49,6 +53,34 @@ export async function adminLogin2FA(userId: string, otp: string): Promise<AdminA
 
 export function adminLogout() {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+export async function adminRegister(name: string, email: string, password: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    
+    const isJson = res.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await res.json() : null;
+    
+    if (!res.ok) throw new Error(data?.error || `Registration failed (${res.status})`);
+    return data;
+}
+
+export async function adminForgotPassword(email: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    
+    const isJson = res.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await res.json() : null;
+    
+    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+    return data;
 }
 
 export function hasAdminToken() {

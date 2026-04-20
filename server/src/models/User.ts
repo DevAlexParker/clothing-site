@@ -9,16 +9,16 @@ export interface IUser extends Document {
   isVerified: boolean;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
-<<<<<<< HEAD
   emailVerificationToken?: string;
+  emailVerificationCodeHash?: string;
+  emailVerificationExpires?: Date;
   twoFactorSecret?: string;
   isTwoFactorEnabled: boolean;
   twoFactorEmailCode?: string;
   twoFactorEmailCodeExpires?: Date;
-=======
-  emailVerificationCodeHash?: string;
-  emailVerificationExpires?: Date;
->>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
+  loginAttempts: number;
+  lockUntil?: Date;
+  lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,20 +30,18 @@ const UserSchema = new Schema<IUser>({
   phone: { type: String },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   isVerified: { type: Boolean, default: false },
-<<<<<<< HEAD
-  passwordResetToken: { type: String },
-  passwordResetExpires: { type: Date },
+  passwordResetToken: { type: String, select: false },
+  passwordResetExpires: { type: Date, select: false },
   emailVerificationToken: { type: String },
+  emailVerificationCodeHash: { type: String, select: false },
+  emailVerificationExpires: { type: Date, select: false },
   twoFactorSecret: { type: String },
   isTwoFactorEnabled: { type: Boolean, default: false },
   twoFactorEmailCode: { type: String },
   twoFactorEmailCodeExpires: { type: Date },
-=======
-  passwordResetToken: { type: String, select: false },
-  passwordResetExpires: { type: Date, select: false },
-  emailVerificationCodeHash: { type: String, select: false },
-  emailVerificationExpires: { type: Date, select: false },
->>>>>>> c967962844a16a7917e4a5a23110c522ad11e1de
+  loginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date },
+  lastLogin: { type: Date },
 }, {
   timestamps: true,
   toJSON: {
