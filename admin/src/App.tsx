@@ -63,8 +63,8 @@ export default function App() {
           </div>
 
           <section className="w-full max-w-md rounded-3xl border border-white/15 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-xl font-bold text-white">Sign in to continue</h2>
-            <p className="mt-1 text-sm text-slate-300">Use the admin credentials configured on the server.</p>
+            <h2 className="text-xl font-bold text-white">Admin Login (.env)</h2>
+            <p className="mt-1 text-sm text-slate-300">Use the admin credentials configured in the server's .env file.</p>
 
             <form className="mt-6 space-y-4" onSubmit={handleAdminLogin}>
               <div>
