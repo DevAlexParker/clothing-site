@@ -41,6 +41,9 @@ export default function App() {
       if (result && 'requires2FA' in result && result.requires2FA) {
         setUserId(result.userId);
         setStage('2fa');
+      } else if (result && 'requires2FASetup' in result && (result as any).requires2FASetup) {
+        setIsAuthenticated(true);
+        setAuthInfo('Welcome! 2FA is mandatory. Please set it up in Security.');
       } else {
         setIsAuthenticated(true);
       }
@@ -105,6 +108,21 @@ export default function App() {
     setStage('login');
     setUsername('');
     setPassword('');
+  };
+
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const handleDeleteAccount = async () => {
+    if (!confirm('DANGER: This will permanently delete your admin account and all associated logs will be anonymized. Proceed?')) return;
+    setDeleteLoading(true);
+    try {
+      await deleteAdminAccount();
+      alert('Account deleted successfully.');
+      handleLogout();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -221,7 +239,18 @@ export default function App() {
 
         <div className="p-8 border-t border-gray-50">
           <div className="bg-gray-50 rounded-2xl p-4 text-center">
-            <button onClick={handleLogout} className="w-full text-xs font-bold uppercase tracking-wider text-red-500 hover:underline">Logout</button>
+            <button
+              onClick={handleLogout}
+              className="mt-4 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold uppercase tracking-wider text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              Logout
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              className="mt-2 w-full text-[9px] font-bold uppercase tracking-widest text-red-500/60 hover:text-red-600 transition-colors"
+            >
+              Delete Account
+            </button>
           </div>
         </div>
       </aside>

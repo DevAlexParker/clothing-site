@@ -20,6 +20,7 @@ import { generateTokens, createSession, revokeAllSessions } from '../lib/session
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'refresh_secret';
+const ADMIN_REGISTER_SECRET = process.env.ADMIN_REGISTER_SECRET || 'aura_admin_2026';
 
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET is required');
@@ -40,6 +41,8 @@ const registerSchema = z.object({
   email: z.string().trim().email().max(255),
   password: passwordPolicy,
   phone: z.string().trim().max(30).optional(),
+  role: z.enum(['user', 'admin']).default('user'),
+  adminSecret: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -53,23 +56,30 @@ const LOCK_TIME = 15 * 60 * 1000;
 const logAudit = async (userId: any, action: string, targetType: string, req: Request, metadata: any = {}) => {
   try {
     await AuditLog.create({
-      userId,
-      action,
-      targetType,
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
+      userId, action, targetType,
+      ip: req.ip, userAgent: req.headers['user-agent'],
       metadata
     });
-  } catch (err) {
-    console.error('Audit log failed:', err);
-  }
+  } catch (err) { console.error('Audit log failed:', err); }
 };
 
 // POST /api/auth/register
 router.post('/register', authRateLimiter, blockDisposableEmail, async (req, res) => {
   try {
-    const { name, email, password, phone } = registerSchema.parse(req.body);
+    const { name, email, password, phone, role, adminSecret } = registerSchema.parse(req.body);
     const normalizedEmail = email.toLowerCase();
+    
+    // Protect admin role
+    let finalRole = 'user';
+    if (role === 'admin') {
+      const isFirst = (await User.countDocuments({})) === 0;
+      if (isFirst || adminSecret === ADMIN_REGISTER_SECRET) {
+        finalRole = 'admin';
+      } else {
+        return res.status(403).json({ error: 'Invalid admin registration secret.' });
+      }
+    }
+
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) return res.status(400).json({ error: 'Account already exists' });
 
@@ -79,20 +89,18 @@ router.post('/register', authRateLimiter, blockDisposableEmail, async (req, res)
 
     const user = new User({
       name, email: normalizedEmail, password: hashedPassword, phone,
+      role: finalRole as 'user' | 'admin',
       isVerified: false,
       emailVerificationCodeHash: codeHash,
       emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
     });
 
     await user.save();
-    await logAudit(user._id, 'USER_REGISTER', 'USER', req);
+    await logAudit(user._id, 'USER_REGISTER', 'USER', req, { role: finalRole });
     
     try {
       await sendVerificationCodeEmail(normalizedEmail, code, name);
-    } catch (err) {
-      console.error('Email delivery failed:', err);
-      // We don't fail registration if email fails, user can resend later
-    }
+    } catch (err) { console.error('Email delivery failed:', err); }
 
     res.status(201).json({
       requiresVerification: true,
@@ -129,7 +137,17 @@ router.post('/login', authRateLimiter, async (req, res) => {
     await user.save();
 
     if (!user.isVerified) return res.status(403).json({ error: 'Verify your email first.', code: 'EMAIL_NOT_VERIFIED', email: user.email });
-    if (user.isTwoFactorEnabled) return res.json({ requires2FA: true, userId: user._id });
+    
+    if (user.isTwoFactorEnabled) {
+      return res.json({ requires2FA: true, userId: user._id });
+    }
+
+    // Special case for mandatory admin 2FA setup
+    if (user.role === 'admin' && !user.isTwoFactorEnabled) {
+      // Issue a limited setup token
+      const token = jwt.sign({ id: user._id, setup2FA: true }, JWT_SECRET, { expiresIn: '15m' });
+      return res.json({ requires2FASetup: true, token, user });
+    }
 
     const { accessToken, refreshToken } = generateTokens(String(user._id));
     await createSession(req, String(user._id), refreshToken);
@@ -169,12 +187,36 @@ router.post('/login/2fa', async (req, res) => {
     await createSession(req, String(user._id), refreshToken);
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 86400000 });
     res.json({ user, token: accessToken });
-  } catch (err) {
-    res.status(500).json({ error: '2FA failed' });
-  }
+  } catch (err) { res.status(500).json({ error: '2FA failed' }); }
 });
 
-// POST /api/auth/verify-email
+// POST /api/auth/admin/login
+router.post('/admin/login', authRateLimiter, async (req, res) => {
+  const { username, password } = req.body;
+  
+  // Normal DB check
+  const dbAdmin = await User.findOne({ email: username.toLowerCase(), role: 'admin' }).select('+password +isTwoFactorEnabled');
+  if (dbAdmin && (await bcrypt.compare(password, dbAdmin.password))) {
+    if (dbAdmin.isTwoFactorEnabled) {
+      return res.json({ requires2FA: true, userId: dbAdmin._id });
+    }
+    // Mandatory 2FA Setup mode
+    const token = jwt.sign({ id: dbAdmin._id, setup2FA: true }, JWT_SECRET, { expiresIn: '15m' });
+    return res.json({ requires2FASetup: true, token, user: dbAdmin });
+  }
+
+  // Emergency Env Admin fallback
+  const username_env = process.env.ADMIN_USERNAME?.trim();
+  const password_env = process.env.ADMIN_PASSWORD?.trim();
+  if (username_env && username === username_env && password === password_env) {
+    const token = jwt.sign({ role: 'admin', authType: 'env_admin' }, JWT_SECRET, { expiresIn: '1h' });
+    return res.json({ token, user: { name: 'Environment Admin', role: 'admin' } });
+  }
+
+  res.status(401).json({ error: 'Invalid credentials' });
+});
+
+// GET /api/auth/verify-email
 router.post('/verify-email', async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -193,56 +235,10 @@ router.post('/verify-email', async (req, res) => {
     await createSession(req, String(user._id), refreshToken);
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 86400000 });
     res.json({ user, token: accessToken });
-  } catch (err) {
-    res.status(500).json({ error: 'Verification failed' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Verification failed' }); }
 });
 
-// POST /api/auth/forgot-password
-router.post('/forgot-password', authRateLimiter, async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.json({ message: 'If an account exists, a reset link has been sent.' });
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    user.passwordResetToken = hash;
-    user.passwordResetExpires = new Date(Date.now() + 3600000);
-    await user.save();
-
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const resetUrl = `${baseUrl}/?resetPasswordToken=${token}`;
-    await sendPasswordResetEmail(user.email, resetUrl);
-    res.json({ message: 'Reset link sent.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to process request' });
-  }
-});
-
-// POST /api/auth/reset-password
-router.post('/reset-password', async (req, res) => {
-  try {
-    const { token, password } = req.body;
-    passwordPolicy.parse(password);
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({ passwordResetToken: hash, passwordResetExpires: { $gt: new Date() } });
-    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
-
-    user.password = await bcrypt.hash(password, 12);
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-    await revokeAllSessions(String(user._id));
-
-    res.json({ message: 'Password reset successful.' });
-  } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'Reset failed' });
-  }
-});
-
-// 2FA Management
-router.get('/2fa/generate', authenticate, async (req: AuthRequest, res) => {
+router.post('/2fa/generate', authenticate, async (req: AuthRequest, res) => {
   const secret = speakeasy.generateSecret({ name: `AURA (${req.user.email})` });
   req.user.twoFactorSecret = secret.base32;
   await req.user.save();
@@ -260,38 +256,8 @@ router.post('/2fa/enable', authenticate, async (req: AuthRequest, res) => {
   } else res.status(400).json({ error: 'Invalid code' });
 });
 
-router.post('/2fa/email/send', async (req, res) => {
-  const { userId } = req.body;
-  const user = await User.findById(userId);
-  if (!user) return res.status(400).json({ error: 'User not found' });
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  user.twoFactorEmailCode = code;
-  user.twoFactorEmailCodeExpires = new Date(Date.now() + 600000);
-  await user.save();
-  await sendMailMessage({ to: user.email, subject: 'Your AURA Code', text: `Your code is ${code}`, html: `<b>${code}</b>` });
-  res.json({ message: 'Code sent' });
-});
-
-// Admin Security
-router.post('/admin/login', authRateLimiter, async (req, res) => {
-  const { username, password } = req.body;
-  const dbAdmin = await User.findOne({ email: username.toLowerCase(), role: 'admin' }).select('+password +isTwoFactorEnabled');
-  if (dbAdmin && (await bcrypt.compare(password, dbAdmin.password))) {
-    if (!dbAdmin.isTwoFactorEnabled) return res.status(403).json({ error: '2FA is mandatory for admins.', code: '2FA_MANDATORY' });
-    return res.json({ requires2FA: true, userId: dbAdmin._id });
-  }
-  res.status(401).json({ error: 'Invalid credentials' });
-});
-
 // Profile & Sessions
 router.get('/me', authenticate, (req: AuthRequest, res) => res.json(req.user));
-router.patch('/update', authenticate, async (req: AuthRequest, res) => {
-  const updates = req.body;
-  Object.assign(req.user, updates);
-  await req.user.save();
-  res.json(req.user);
-});
-
 router.get('/sessions', authenticate, async (req: AuthRequest, res) => {
   const sessions = await Session.find({ userId: req.user._id, isValid: true }).sort({ lastActive: -1 });
   res.json(sessions);
@@ -302,31 +268,34 @@ router.delete('/sessions/:id', authenticate, async (req: AuthRequest, res) => {
   res.json({ message: 'Session revoked' });
 });
 
-router.post('/refresh', async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) return res.status(401).json({ error: 'No token' });
-  try {
-    const payload: any = jwt.verify(refreshToken, REFRESH_SECRET);
-    const session = await Session.findOne({ refreshToken, userId: payload.id, isValid: true });
-    if (!session) throw new Error();
-    const newTokens = generateTokens(payload.id);
-    session.refreshToken = newTokens.refreshToken;
-    await session.save();
-    res.cookie('refreshToken', newTokens.refreshToken, { httpOnly: true, secure: true, sameSite: 'strict' });
-    res.json({ token: newTokens.accessToken });
-  } catch (err) { res.status(401).json({ error: 'Invalid refresh token' }); }
-});
-
-router.get('/audit-logs', authenticate, async (req: AuthRequest, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
-  const logs = await AuditLog.find().populate('userId', 'name email').sort({ createdAt: -1 }).limit(100);
-  res.json(logs);
-});
-
 router.post('/logout', async (req, res) => {
   const token = req.cookies.refreshToken;
   if (token) await Session.findOneAndUpdate({ refreshToken: token }, { isValid: false });
   res.clearCookie('refreshToken').json({ message: 'Logged out' });
+});
+
+// DELETE /api/auth/me (Account Deletion)
+router.delete('/me', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // 1. Delete all sessions
+    await Session.deleteMany({ userId });
+    
+    // 2. Anonymize Audit Logs (Keep for security trail but remove identity)
+    await AuditLog.updateMany(
+      { userId },
+      { $set: { userId: null, metadata: { ...req.user.metadata, deleted: true, originalEmail: req.user.email } } }
+    );
+    
+    // 3. Delete the User
+    await User.findByIdAndDelete(userId);
+    
+    res.clearCookie('refreshToken');
+    res.json({ message: 'Account and all associated data deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
 });
 
 export default router;

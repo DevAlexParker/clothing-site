@@ -83,6 +83,17 @@ export async function adminForgotPassword(email: string): Promise<any> {
     return data;
 }
 
+export async function deleteAdminAccount(): Promise<any> {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() },
+    });
+    const isJson = res.headers.get('content-type')?.includes('application/json');
+    const data = isJson ? await res.json() : null;
+    if (!res.ok) throw new Error(data?.error || `Deletion failed (${res.status})`);
+    return data;
+}
+
 export function hasAdminToken() {
   return Boolean(getAdminToken());
 }

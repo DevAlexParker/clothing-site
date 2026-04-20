@@ -27,8 +27,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const savedUser = localStorage.getItem('aura_user');
     const token = localStorage.getItem('aura_token');
     
-    if (savedUser && token) {
-      setUser(JSON.parse(savedUser));
+    if (savedUser && savedUser !== 'undefined' && token) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (err) {
+        console.error('Failed to parse user session:', err);
+        localStorage.removeItem('aura_user');
+        localStorage.removeItem('aura_token');
+      }
     }
     setLoading(false);
   }, []);
