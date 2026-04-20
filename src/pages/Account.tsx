@@ -33,7 +33,6 @@ export default function Account() {
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
