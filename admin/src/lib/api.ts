@@ -11,7 +11,7 @@ export interface AdminAuthUser {
   role: 'admin';
 }
 
-export async function adminLogin(username: string, password: string): Promise<AdminAuthUser | { requires2FA: true, userId: string }> {
+export async function adminLogin(username: string, password: string): Promise<AdminAuthUser> {
   const res = await fetch(`${API_BASE}/auth/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,73 +25,12 @@ export async function adminLogin(username: string, password: string): Promise<Ad
     throw new Error(data?.error || `Server Error (${res.status}): ${res.statusText}`);
   }
 
-  if (data.requires2FA) {
-    return { requires2FA: true, userId: data.userId };
-  }
-
-  localStorage.setItem(TOKEN_KEY, data.token);
-  return data.user as AdminAuthUser;
-}
-
-export async function adminLogin2FA(userId: string, otp: string): Promise<AdminAuthUser> {
-  const res = await fetch(`${API_BASE}/auth/login/2fa`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, otp }),
-  });
-
-  const isJson = res.headers.get('content-type')?.includes('application/json');
-  const data = isJson ? await res.json() : null;
-
-  if (!res.ok) {
-    throw new Error(data?.error || `Verification failed (${res.status})`);
-  }
-
   localStorage.setItem(TOKEN_KEY, data.token);
   return data.user as AdminAuthUser;
 }
 
 export function adminLogout() {
   localStorage.removeItem(TOKEN_KEY);
-}
-
-export async function adminRegister(name: string, email: string, password: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
-    
-    const isJson = res.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await res.json() : null;
-    
-    if (!res.ok) throw new Error(data?.error || `Registration failed (${res.status})`);
-    return data;
-}
-
-export async function adminForgotPassword(email: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    
-    const isJson = res.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await res.json() : null;
-    
-    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
-    return data;
-}
-
-export async function deleteAdminAccount(): Promise<any> {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      method: 'DELETE',
-      headers: { ...authHeaders() },
-    });
-    const isJson = res.headers.get('content-type')?.includes('application/json');
-    const data = isJson ? await res.json() : null;
-    if (!res.ok) throw new Error(data?.error || `Deletion failed (${res.status})`);
-    return data;
 }
 
 export function hasAdminToken() {
