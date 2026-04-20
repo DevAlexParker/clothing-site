@@ -17,105 +17,99 @@ interface Order {
   }[];
 }
 
-interface UserSession {
-  _id: string;
-  browser: string;
-  os: string;
-  ip: string;
-  lastActive: string;
-  isValid: boolean;
-}
-
 export default function Account() {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'security'>('orders');
+  const { user, logout, updateUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
-  const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
-  const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // Profile form state
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profileCity, setProfileCity] = useState('');
+  const [profilePostalCode, setProfilePostalCode] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Reset password state
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+  // Sync profile fields from user whenever user changes or tab switches to profile
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfilePhone(user.phone || '');
+      setProfileAddress(user.address || '');
+      setProfileCity(user.city || '');
+      setProfilePostalCode(user.postalCode || '');
+    }
+  }, [user, activeTab]);
+
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
-
-    if (user) {
-      if (activeTab === 'orders') {
-        fetchUserOrders();
-        intervalId = setInterval(() => fetchUserOrders(false), 5000);
-      } else if (activeTab === 'security') {
-        fetchSessions();
-      }
+    if (user && activeTab === 'orders') {
+      fetchUserOrders();
+      intervalId = setInterval(() => fetchUserOrders(false), 5000);
     }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
+    return () => { if (intervalId) clearInterval(intervalId); };
   }, [user, activeTab]);
 
   const fetchUserOrders = async (showLoading = true) => {
     if (showLoading && orders.length === 0) setLoadingOrders(true);
     try {
       const res = await fetch(`${API_URL}/orders/user`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
-        }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('aura_token')}` }
       });
+      if (res.status === 401) {
+        // Token is invalid/expired — stop trying and show empty state
+        setOrders([]);
+        setLoadingOrders(false);
+        return;
+      }
       const data = await res.json();
-      setOrders(data);
+      // Guard: only use data if it is actually an array
+      setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch orders:', err);
+      setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
   };
 
-  const fetchSessions = async () => {
-    setLoadingSessions(true);
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileMessage(null);
     try {
-      const res = await fetch(`${API_URL}/auth/sessions`, {
+      const res = await fetch(`${API_URL}/auth/me`, {
+        method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`,
+        },
+        body: JSON.stringify({
+          name: profileName,
+          phone: profilePhone,
+          address: profileAddress,
+          city: profileCity,
+          postalCode: profilePostalCode,
+        }),
       });
       const data = await res.json();
-      setSessions(data);
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+      updateUser({ name: data.name, phone: data.phone, address: data.address, city: data.city, postalCode: data.postalCode });
+      setProfileMessage({ type: 'ok', text: 'Profile saved successfully.' });
     } catch (err) {
-      console.error('Failed to fetch sessions:', err);
+      setProfileMessage({ type: 'err', text: err instanceof Error ? err.message : 'Update failed.' });
     } finally {
-      setLoadingSessions(false);
-    }
-  };
-
-  const revokeSession = async (id: string) => {
-    try {
-      const res = await fetch(`${API_URL}/auth/sessions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
-        }
-      });
-      if (res.ok) setSessions(prev => prev.filter(s => s._id !== id));
-    } catch (err) {
-      console.error('Failed to revoke session:', err);
-    }
-  };
-
-  const revokeAllSessions = async () => {
-    if (!confirm('Are you sure you want to logout from all other devices?')) return;
-    try {
-      const res = await fetch(`${API_URL}/auth/sessions`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
-        }
-      });
-      if (res.ok) setSessions([]);
-    } catch (err) {
-      console.error('Failed to revoke all sessions:', err);
+      setProfileSaving(false);
     }
   };
 
@@ -146,23 +140,19 @@ export default function Account() {
   };
 
   const handleDeleteAccount = async () => {
-    const confirmation = prompt('DANGER: To confirm account deletion, please type your email address exactly as it appears above.');
+    const confirmation = prompt('DANGER: To confirm account deletion, please type your email address exactly.');
     if (confirmation !== user?.email) {
       alert('Incorrect email. Deletion cancelled.');
       return;
     }
-
     setDeleteLoading(true);
     try {
       const res = await fetch(`${API_URL}/auth/me`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('aura_token')}`
-        }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('aura_token')}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deletion failed');
-      
       alert('Your account and all associated data have been permanently erased from AURA.');
       logout();
     } catch (err: any) {
@@ -175,10 +165,11 @@ export default function Account() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+    // Task 3: pt-32 gives ample padding below the fixed navbar (navbar is ~80px, pt-32 = 128px)
+    <div className="min-h-screen pt-32 pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row gap-8">
-          
+
           {/* Sidebar */}
           <div className="w-full md:w-64 space-y-2">
             <div className="glass-card p-6 rounded-3xl mb-6">
@@ -189,25 +180,19 @@ export default function Account() {
               <p className="text-xs text-center text-gray-500 mt-1 uppercase tracking-widest font-semibold">{user.role}</p>
             </div>
 
-            <button 
+            <button
               onClick={() => setActiveTab('orders')}
               className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'orders' ? 'glass-dark' : 'text-gray-500 hover:bg-white/50'}`}
             >
               📦 MY ORDERS
             </button>
-            <button 
-              onClick={() => setActiveTab('security')}
-              className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'security' ? 'glass-dark' : 'text-gray-500 hover:bg-white/50'}`}
-            >
-              🛡️ SECURITY
-            </button>
-            <button 
+            <button
               onClick={() => setActiveTab('profile')}
               className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all ${activeTab === 'profile' ? 'glass-dark' : 'text-gray-500 hover:bg-white/50'}`}
             >
               👤 ACCOUNT INFO
             </button>
-            <button 
+            <button
               onClick={logout}
               className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all mt-8"
             >
@@ -217,7 +202,8 @@ export default function Account() {
 
           {/* Main Content */}
           <div className="flex-1 space-y-6">
-            
+
+            {/* ORDERS TAB */}
             {activeTab === 'orders' && (
               <div className="animate-fade-in space-y-6">
                 <h1 className="text-3xl font-black tracking-tight text-gray-900 mb-8">Purchase History</h1>
@@ -232,94 +218,136 @@ export default function Account() {
                   </div>
                 ) : orders.map(order => (
                   <div key={order.orderId} className="glass-card p-6 rounded-3xl mb-4">
-                     <div className="flex justify-between">
-                        <span className="font-bold">#{order.orderId}</span>
-                        <span className="font-bold text-gray-900">{formatPrice(order.totalAmount)}</span>
-                     </div>
-                     <p className="text-xs text-gray-400 mt-1">{new Date(order.createdAt).toLocaleDateString()}</p>
-                     <p className={`text-[10px] font-black uppercase mt-2 ${order.status === 'Cancelled' ? 'text-red-500' : 'text-emerald-600'}`}>{order.status}</p>
+                    <div className="flex justify-between">
+                      <span className="font-bold">#{order.orderId}</span>
+                      <span className="font-bold text-gray-900">{formatPrice(order.totalAmount)}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{new Date(order.createdAt).toLocaleDateString()}</p>
+                    <p className={`text-[10px] font-black uppercase mt-2 ${order.status === 'Cancelled' ? 'text-red-500' : 'text-emerald-600'}`}>{order.status}</p>
                   </div>
                 ))}
               </div>
             )}
 
-            {activeTab === 'security' && (
-              <div className="animate-fade-in space-y-8">
-                <h1 className="text-3xl font-black tracking-tight text-gray-900 mb-8">Security & Access</h1>
-                
-                {/* Active Sessions */}
-                <div className="glass-card p-8 rounded-[3rem]">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">Active Sessions</h3>
-                    <button onClick={revokeAllSessions} className="text-xs font-bold text-red-500 hover:underline">REVOKE ALL</button>
-                  </div>
-                  
-                  {loadingSessions ? <div className="text-center py-4 text-gray-400">Loading sessions...</div> : (
-                    <div className="space-y-4">
-                      {sessions.map(sess => (
-                        <div key={sess._id} className="flex justify-between items-center p-4 glass-panel rounded-2xl transition-all hover:bg-white/80">
-                          <div className="flex items-center gap-4">
-                            <div className="text-2xl">{sess.os.toLowerCase().includes('windows') ? '💻' : '📱'}</div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-900">{sess.browser} on {sess.os}</p>
-                              <p className="text-[10px] text-gray-400 font-medium tracking-tight">IP: {sess.ip} • Last active: {new Date(sess.lastActive).toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={() => revokeSession(sess._id)}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Password Management */}
-                <div className="glass-card p-8 rounded-[3rem]">
-                  <h3 className="text-xl font-bold mb-4">Identity Verification</h3>
-                  <div className="flex items-center justify-between p-6 glass-panel rounded-2xl mb-4">
-                    <div>
-                      <p className="text-sm font-bold">Credential Rotation</p>
-                      <p className="text-xs text-gray-500 mt-1">Initiate a password reset via your verified email.</p>
-                    </div>
-                    <button 
-                      onClick={requestPasswordReset}
-                      disabled={resetLoading}
-                      className="text-[10px] font-black bg-black text-white px-6 py-3 rounded-full hover:scale-105 transition-all outline-none"
-                    >
-                      {resetLoading ? 'SENDING...' : 'ROTATE CREDENTIALS'}
-                    </button>
-                  </div>
-                  {resetMessage && <p className={`text-xs px-4 font-bold ${resetMessage.type === 'ok' ? 'text-emerald-600' : 'text-rose-500'}`}>{resetMessage.text}</p>}
-                </div>
-              </div>
-            )}
-
+            {/* ACCOUNT INFO TAB */}
             {activeTab === 'profile' && (
               <div className="animate-fade-in glass-card p-10 rounded-[3rem]">
                 <h1 className="text-3xl font-black tracking-tight text-gray-900 mb-1">Account Info</h1>
-                <p className="text-xs text-gray-400 mb-8 font-medium">Manage your personal identity data and GDPR rights.</p>
-                
-                <form className="space-y-6 max-w-xl">
+                <p className="text-xs text-gray-400 mb-8 font-medium">
+                  Update your personal details. Your saved address will be auto-filled when you place an order.
+                </p>
+
+                <form onSubmit={handleSaveProfile} className="space-y-5 max-w-xl">
                   <div>
-                    <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Legal Name</label>
-                    <input type="text" defaultValue={user.name} className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5" />
+                    <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      value={profileName}
+                      onChange={e => setProfileName(e.target.value)}
+                      required
+                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
+                    />
                   </div>
+
                   <div>
                     <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Email Address</label>
-                    <input type="text" value={user.email} readOnly className="w-full glass-panel px-6 py-4 rounded-2xl text-sm bg-gray-50/50 text-gray-500 cursor-not-allowed" />
+                    <input
+                      type="text"
+                      value={user.email}
+                      readOnly
+                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm bg-gray-50/50 text-gray-500 cursor-not-allowed"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1.5 pl-1">Email cannot be changed.</p>
                   </div>
+
+                  <div>
+                    <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={profilePhone}
+                      onChange={e => setProfilePhone(e.target.value)}
+                      placeholder="e.g. +94 77 123 4567"
+                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Delivery Address</label>
+                    <input
+                      type="text"
+                      value={profileAddress}
+                      onChange={e => setProfileAddress(e.target.value)}
+                      placeholder="e.g. 42 Galle Road"
+                      className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
+                    />
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">City</label>
+                      <input
+                        type="text"
+                        value={profileCity}
+                        onChange={e => setProfileCity(e.target.value)}
+                        placeholder="e.g. Colombo"
+                        className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-black tracking-widest uppercase text-gray-400 mb-2">Postal Code</label>
+                      <input
+                        type="text"
+                        value={profilePostalCode}
+                        onChange={e => setProfilePostalCode(e.target.value)}
+                        placeholder="e.g. 00300"
+                        className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
+                      />
+                    </div>
+                  </div>
+
+                  {profileMessage && (
+                    <p className={`text-xs font-bold ${profileMessage.type === 'ok' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {profileMessage.type === 'ok' ? '✓ ' : '✕ '}{profileMessage.text}
+                    </p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="glass-dark px-10 py-4 rounded-full text-sm font-bold tracking-widest shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50"
+                  >
+                    {profileSaving ? 'SAVING...' : 'SAVE CHANGES'}
+                  </button>
                 </form>
-                
-                <div className="mt-16 pt-10 border-t border-gray-100">
+
+                {/* Password Reset */}
+                <div className="mt-12 pt-10 border-t border-gray-100">
+                  <h3 className="text-base font-bold text-gray-900 mb-2">Password</h3>
+                  <p className="text-xs text-gray-400 mb-4 font-medium">
+                    A reset link will be sent to your registered email address. Click the link to set a new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={requestPasswordReset}
+                    disabled={resetLoading}
+                    className="text-sm font-bold text-gray-600 hover:text-black transition-colors disabled:opacity-50 underline underline-offset-4"
+                  >
+                    {resetLoading ? 'Sending...' : 'Send Password Reset Link →'}
+                  </button>
+                  {resetMessage && (
+                    <p className={`text-xs mt-2 font-medium ${resetMessage.type === 'ok' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {resetMessage.text}
+                    </p>
+                  )}
+                </div>
+
+                {/* Danger Zone */}
+                <div className="mt-12 pt-10 border-t border-gray-100">
                   <h3 className="text-rose-600 font-black text-sm uppercase tracking-widest mb-2">Terminate Account</h3>
                   <p className="text-xs text-gray-400 mb-6 max-w-md font-medium leading-relaxed">
                     Permanently erase your identity, order history (anonymized), and active sessions from our systems. This action is irreversible.
                   </p>
-                  <button 
+                  <button
                     onClick={handleDeleteAccount}
                     disabled={deleteLoading}
                     className="text-[10px] font-black text-white bg-rose-600 px-8 py-4 rounded-full hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"

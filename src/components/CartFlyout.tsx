@@ -59,6 +59,9 @@ export default function CartFlyout({
       ...prev,
       fullName: user?.name || '',
       email: user?.email || '',
+      address: user?.address || prev.address || '',
+      city: user?.city || prev.city || '',
+      postalCode: user?.postalCode || prev.postalCode || '',
     }));
   }, [isOpen, user]);
 
@@ -71,9 +74,9 @@ export default function CartFlyout({
     setShippingInfo({
       fullName: user?.name || '',
       email: user?.email || '',
-      address: '',
-      city: '',
-      postalCode: '',
+      address: user?.address || '',
+      city: user?.city || '',
+      postalCode: user?.postalCode || '',
     });
     setTimeout(() => setCheckoutStep('cart'), 300);
   };

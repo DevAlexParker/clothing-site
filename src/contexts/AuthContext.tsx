@@ -5,6 +5,9 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
   role: 'user' | 'admin';
   isVerified: boolean;
 }

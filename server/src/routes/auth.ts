@@ -261,6 +261,23 @@ router.post('/2fa/enable', authenticate, async (req: AuthRequest, res) => {
 
 // Profile & Sessions
 router.get('/me', authenticate, (req: AuthRequest, res) => res.json(req.user));
+
+// PATCH /api/auth/me — update profile (name, phone, address, city, postalCode)
+router.patch('/me', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const allowed = ['name', 'phone', 'address', 'city', 'postalCode'] as const;
+    const updates: Partial<Record<typeof allowed[number], string>> = {};
+    for (const key of allowed) {
+      if (typeof req.body[key] === 'string') updates[key] = req.body[key].trim();
+    }
+    Object.assign(req.user, updates);
+    await req.user.save();
+    res.json(req.user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 router.get('/sessions', authenticate, async (req: AuthRequest, res) => {
   const sessions = await Session.find({ userId: req.user._id, isValid: true }).sort({ lastActive: -1 });
   res.json(sessions);
@@ -298,6 +315,69 @@ router.delete('/me', authenticate, async (req: AuthRequest, res) => {
     res.json({ message: 'Account and all associated data deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail }).select('+passwordResetToken +passwordResetExpires');
+    const generic = { message: 'If an account exists for that email, a reset link has been sent.' };
+    if (!user) { res.json(generic); return; }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    user.passwordResetToken = hash;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    const baseUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const resetUrl = `${baseUrl}/?resetPasswordToken=${encodeURIComponent(token)}`;
+
+    try {
+      await sendPasswordResetEmail(normalizedEmail, resetUrl);
+    } catch (err) {
+      console.error('Failed to send reset email:', err);
+    }
+
+    res.json(generic);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send reset email' });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({
+      passwordResetToken: hash,
+      passwordResetExpires: { $gt: new Date() },
+    }).select('+password +passwordResetToken +passwordResetExpires');
+
+    if (!user) return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+
+    user.password = await bcrypt.hash(password, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
+
+    // Auto-login: generate a fresh token
+    const { accessToken, refreshToken } = generateTokens(String(user._id));
+    await createSession(req, String(user._id), refreshToken);
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 86400000 });
+    res.json({ token: accessToken, user: user.toJSON() });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
