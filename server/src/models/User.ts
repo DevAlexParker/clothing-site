@@ -5,6 +5,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   phone?: string;
+  smsOptIn: boolean;
   address?: string;
   city?: string;
   postalCode?: string;
@@ -31,6 +32,7 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, index: true },
   password: { type: String, required: true },
   phone: { type: String },
+  smsOptIn: { type: Boolean, default: false },
   address: { type: String },
   city: { type: String },
   postalCode: { type: String },

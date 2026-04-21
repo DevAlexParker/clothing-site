@@ -15,6 +15,8 @@ const createOrderSchema = z.object({
     addressLine1: z.string().trim().min(5).max(255),
     city: z.string().trim().min(2).max(120),
     postalCode: z.string().trim().min(3).max(20),
+    phone: z.string().trim().min(5).max(20).optional(),
+    smsOptIn: z.boolean().optional(),
   }),
   items: z.array(
     z.object({
@@ -43,6 +45,14 @@ const trackingSchema = z.object({
 router.post('/', optionalAuthenticate, async (req: AuthRequest, res) => {
   try {
     const { orderId, customerInfo, items, paymentMethod, paymentStatus, paymentIntentId } = createOrderSchema.parse(req.body);
+
+    if (req.user && typeof req.user.save === 'function') {
+      req.user.phone = customerInfo.phone || req.user.phone;
+      if (customerInfo.smsOptIn !== undefined) {
+        req.user.smsOptIn = customerInfo.smsOptIn;
+      }
+      await req.user.save();
+    }
 
     const productIds = [...new Set(items.map((item) => item.productId))];
     const products = await Product.find({ _id: { $in: productIds } }).lean();

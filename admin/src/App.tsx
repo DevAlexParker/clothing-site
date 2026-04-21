@@ -2,6 +2,7 @@ import { useState } from 'react';
 import OrdersView from './components/OrdersView';
 import ProductsView from './components/ProductsView';
 import SalesView from './components/SalesView';
+import CampaignsView from './components/CampaignsView';
 import { adminLogin, adminLogout, hasAdminToken } from './lib/api';
 import AdminNotifications from './components/AdminNotifications';
 
@@ -11,13 +12,14 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales' | 'campaigns'>('orders');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const tabTitles = {
     orders: 'Order Management',
     inventory: 'Product Inventory',
     sales: 'Sales Analytics',
+    campaigns: 'SMS Campaigns',
   };
 
   const handleAdminLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -145,6 +147,12 @@ export default function App() {
           >
             <span className="font-bold text-sm tracking-wide">Sales</span>
           </button>
+          <button
+            onClick={() => { setActiveTab('campaigns'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-4 px-6 py-3 rounded-2xl transition-all ${activeTab === 'campaigns' ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/10' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
+          >
+            <span className="font-bold text-sm tracking-wide">Campaigns</span>
+          </button>
         </nav>
 
         <div className="p-8 border-t border-gray-50">
@@ -188,6 +196,7 @@ export default function App() {
         {activeTab === 'orders' && <OrdersView />}
         {activeTab === 'inventory' && <ProductsView />}
         {activeTab === 'sales' && <SalesView />}
+        {activeTab === 'campaigns' && <CampaignsView />}
       </main>
     </div>
   );

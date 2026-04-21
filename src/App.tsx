@@ -263,6 +263,7 @@ export default function App() {
         removeItem={removeItem}
         clearCart={() => setCart([])}
         onCheckout={handleCheckout}
+        onRequireLogin={() => setAuthModal({ isOpen: true, type: 'login' })}
       />
 
       {selectedProduct && (

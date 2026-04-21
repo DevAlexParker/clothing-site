@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 
 import analyticsRoutes from './routes/analytics.js';
 import adminRoutes from './routes/admin.js';
+import campaignRoutes from './routes/campaigns.js';
 import cookieParser from 'cookie-parser';
 import { securityHeaders } from './middleware/security.js';
 
@@ -54,6 +55,7 @@ app.use('/api/auth', authRoutes);
 
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 
 

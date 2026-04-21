@@ -16,6 +16,8 @@ export interface ShippingInfo {
   address: string;
   city: string;
   postalCode: string;
+  phone: string;
+  smsOptIn: boolean;
 }
 
 interface CartFlyoutProps {
@@ -26,6 +28,7 @@ interface CartFlyoutProps {
   removeItem: (id: string, size: string, color: string) => void;
   clearCart: () => void;
   onCheckout: (shippingInfo: ShippingInfo) => void;
+  onRequireLogin?: () => void;
 }
 
 export default function CartFlyout({
@@ -34,7 +37,8 @@ export default function CartFlyout({
   cart,
   updateQuantity,
   removeItem,
-  onCheckout
+  onCheckout,
+  onRequireLogin
 }: CartFlyoutProps) {
   const { user } = useAuth();
 
@@ -46,6 +50,8 @@ export default function CartFlyout({
     address: '',
     city: '',
     postalCode: '',
+    phone: '',
+    smsOptIn: false,
   });
 
   const [shippingErrors, setShippingErrors] = useState<Partial<ShippingInfo>>({});
@@ -62,6 +68,8 @@ export default function CartFlyout({
       address: user?.address || prev.address || '',
       city: user?.city || prev.city || '',
       postalCode: user?.postalCode || prev.postalCode || '',
+      phone: user?.phone || prev.phone || '',
+      smsOptIn: prev.smsOptIn,
     }));
   }, [isOpen, user]);
 
@@ -77,6 +85,8 @@ export default function CartFlyout({
       address: user?.address || '',
       city: user?.city || '',
       postalCode: user?.postalCode || '',
+      phone: user?.phone || '',
+      smsOptIn: false,
     });
     setTimeout(() => setCheckoutStep('cart'), 300);
   };
@@ -89,6 +99,7 @@ export default function CartFlyout({
     if (!shippingInfo.address.trim()) errors.address = 'Required';
     if (!shippingInfo.city.trim()) errors.city = 'Required';
     if (!shippingInfo.postalCode.trim()) errors.postalCode = 'Required';
+    if (!shippingInfo.phone.trim()) errors.phone = 'Required';
 
     setShippingErrors(errors);
     return Object.keys(errors).length === 0;
@@ -100,7 +111,7 @@ export default function CartFlyout({
     onCheckout(shippingInfo);
   };
 
-  const updateField = (field: keyof ShippingInfo, value: string) => {
+  const updateField = (field: keyof ShippingInfo, value: string | boolean) => {
     setShippingInfo(prev => ({ ...prev, [field]: value }));
     if (shippingErrors[field]) {
       setShippingErrors(prev => {
@@ -195,6 +206,27 @@ export default function CartFlyout({
                   {shippingErrors.postalCode && <p className="text-xs text-red-500 mt-1 pl-1">{shippingErrors.postalCode}</p>}
                 </div>
               </div>
+
+              <div>
+                <input 
+                  type="tel" placeholder="Phone Number" 
+                  value={shippingInfo.phone} 
+                  onChange={e => updateField('phone', e.target.value)} 
+                  className={`w-full glass-panel px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-black/20 focus:bg-white/90 transition-all ${shippingErrors.phone ? 'ring-2 ring-red-400' : ''}`} 
+                />
+                {shippingErrors.phone && <p className="text-xs text-red-500 mt-1 pl-1">{shippingErrors.phone}</p>}
+              </div>
+
+              <div className="flex items-start gap-3 mt-2 glass-panel p-4 rounded-xl border border-white/20 hover:border-black/10 transition-colors cursor-pointer" onClick={() => updateField('smsOptIn', !shippingInfo.smsOptIn)}>
+                <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border transition-all ${shippingInfo.smsOptIn ? 'bg-black border-black text-white' : 'bg-white border-gray-300'}`}>
+                  {shippingInfo.smsOptIn && <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-800">Sign up for SMS Alerts</h4>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Receive exclusive restock alerts, flash sales, and birthday offers directly straight to your phone. Unsubscribe anytime.</p>
+                </div>
+              </div>
+
             </div>
 
           /* === CART ITEMS === */
@@ -257,6 +289,11 @@ export default function CartFlyout({
             <button 
               onClick={() => {
                 if (checkoutStep === 'cart') {
+                  if (!user) {
+                    onClose();
+                    onRequireLogin?.();
+                    return;
+                  }
                   setCheckoutStep('shipping');
                 } else if (checkoutStep === 'shipping') {
                   handleProceedToPayment();

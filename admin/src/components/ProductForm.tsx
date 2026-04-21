@@ -33,10 +33,15 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = {
+        ...formData,
+        images: formData.images.filter(img => img.trim() !== ''),
+      };
+      
       if (product?.id) {
-        await updateProduct(product.id, formData);
+        await updateProduct(product.id, payload);
       } else {
-        await createProduct(formData);
+        await createProduct(payload);
       }
       onSuccess();
     } catch (error) {
@@ -87,7 +92,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form id="productForm" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Product Name</label>
@@ -160,7 +165,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
               {formData.images.map((img, idx) => (
                 <div key={idx} className="flex gap-2">
                   <input
-                    type="text"
+                    type="url"
                     required
                     value={img}
                     onChange={e => {
@@ -253,7 +258,8 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
+            form="productForm"
             disabled={loading}
             className="flex-[2] px-6 py-4 bg-gray-900 text-white text-sm font-bold uppercase tracking-widest rounded-2xl hover:bg-gray-800 transition-all shadow-xl shadow-gray-900/20 disabled:opacity-50"
           >

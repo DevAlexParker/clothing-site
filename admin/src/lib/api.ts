@@ -237,6 +237,36 @@ export async function fetchSalesAnalytics(): Promise<SalesAnalytics> {
   return res.json();
 }
 
+// ── Campaigns ──
+export interface Campaign {
+  _id: string;
+  type: 'restock_alert' | 'flash_sale' | 'birthday_offer' | 'custom';
+  message: string;
+  audienceCount: number;
+  status: 'sent' | 'failed';
+  createdAt: string;
+}
+
+export async function fetchCampaigns(): Promise<Campaign[]> {
+  const res = await fetch(`${API_BASE}/campaigns`, {
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to fetch campaigns');
+  return res.json();
+}
+
+export async function createCampaign(type: string, message: string): Promise<Campaign> {
+  const res = await fetch(`${API_BASE}/campaigns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ type, message }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to create campaign');
+  return res.json();
+}
+
 // ── Helpers ──
 export const formatPrice = (price: number) => {
   return new Intl.NumberFormat('en-LK', {
