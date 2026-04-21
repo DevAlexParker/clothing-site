@@ -29,6 +29,7 @@ export default function Account() {
   const [profileAddress, setProfileAddress] = useState('');
   const [profileCity, setProfileCity] = useState('');
   const [profilePostalCode, setProfilePostalCode] = useState('');
+  const [profileSmsOptIn, setProfileSmsOptIn] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -48,6 +49,7 @@ export default function Account() {
       setProfileAddress(user.address || '');
       setProfileCity(user.city || '');
       setProfilePostalCode(user.postalCode || '');
+      setProfileSmsOptIn(user.smsOptIn || false);
     }
   }, [user, activeTab]);
 
@@ -67,9 +69,10 @@ export default function Account() {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('aura_token')}` }
       });
       if (res.status === 401) {
-        // Token is invalid/expired — stop trying and show empty state
+        // Token is invalid/expired
         setOrders([]);
         setLoadingOrders(false);
+        logout();
         return;
       }
       const data = await res.json();
@@ -100,11 +103,24 @@ export default function Account() {
           address: profileAddress,
           city: profileCity,
           postalCode: profilePostalCode,
+          smsOptIn: profileSmsOptIn,
         }),
       });
+      if (res.status === 401) {
+        logout();
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Update failed');
-      updateUser({ name: data.name, phone: data.phone, address: data.address, city: data.city, postalCode: data.postalCode });
+      updateUser({ 
+        name: data.name, 
+        phone: data.phone, 
+        address: data.address, 
+        city: data.city, 
+        postalCode: data.postalCode,
+        smsOptIn: data.smsOptIn
+      });
       setProfileMessage({ type: 'ok', text: 'Profile saved successfully.' });
     } catch (err) {
       setProfileMessage({ type: 'err', text: err instanceof Error ? err.message : 'Update failed.' });
@@ -303,6 +319,16 @@ export default function Account() {
                         className="w-full glass-panel px-6 py-4 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-black/5"
                       />
                     </div>
+                  </div>
+
+                  <div className="pt-4 pb-2">
+                    <label className="flex items-center gap-3 cursor-pointer group w-max">
+                      <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors border-2 ${profileSmsOptIn ? 'bg-black border-black text-white' : 'border-gray-300 group-hover:border-black'}`}>
+                        <svg className={`w-3.5 h-3.5 transition-transform ${profileSmsOptIn ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                      </div>
+                      <span className="text-sm font-bold text-gray-700 select-none">Subscribe to SMS alerts for exclusive marketing offers</span>
+                      <input type="checkbox" className="hidden" checked={profileSmsOptIn} onChange={(e) => setProfileSmsOptIn(e.target.checked)} />
+                    </label>
                   </div>
 
                   {profileMessage && (

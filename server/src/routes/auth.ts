@@ -270,6 +270,9 @@ router.patch('/me', authenticate, async (req: AuthRequest, res) => {
     for (const key of allowed) {
       if (typeof req.body[key] === 'string') updates[key] = req.body[key].trim();
     }
+    if (typeof req.body.smsOptIn === 'boolean') {
+      req.user.smsOptIn = req.body.smsOptIn;
+    }
     Object.assign(req.user, updates);
     await req.user.save();
     res.json(req.user);

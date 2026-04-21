@@ -10,6 +10,7 @@ interface User {
   postalCode?: string;
   role: 'user' | 'admin';
   isVerified: boolean;
+  smsOptIn?: boolean;
 }
 
 interface AuthContextType {
