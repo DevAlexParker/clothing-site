@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
@@ -16,6 +17,12 @@ export default function Navbar({
   navigate 
 }: NavbarProps) {
   const { user } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleMobileMenuClick = (page: string) => {
+    navigate(page);
+    setIsMobileMenuOpen(false);
+  };
   return (
     <header className="fixed top-0 left-0 right-0 z-40 px-4 md:px-8 py-5">
       <div className="glass-panel max-w-7xl mx-auto rounded-full flex justify-between items-center px-6 md:px-8 py-3">
@@ -80,12 +87,46 @@ export default function Navbar({
              {user ? <span className="text-[10px] font-black">{user.name[0]}</span> : <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
           </button>
 
-          {/* Mobile menu toggle (simplified for demo) */}
-          <button className="md:hidden opacity-70 hover:opacity-100 pl-2 border-l border-gray-300">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          {/* Mobile menu toggle */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden opacity-70 hover:opacity-100 pl-2 border-l border-gray-300"
+          >
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               {isMobileMenuOpen ? (
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+               ) : (
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+               )}
+             </svg>
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl mx-4 py-4 flex flex-col gap-4 border border-gray-100">
+          <button 
+            onClick={() => handleMobileMenuClick('collections')} 
+            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left ${currentPage === 'collections' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
+          >
+            Collections
+          </button>
+          <button 
+            onClick={() => handleMobileMenuClick('new-arrivals')} 
+            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left flex items-center justify-between ${currentPage === 'new-arrivals' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
+          >
+            New Arrivals
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          </button>
+          <button 
+            onClick={() => handleMobileMenuClick('about')} 
+            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left ${currentPage === 'about' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
+          >
+            About
+          </button>
+        </div>
+      )}
     </header>
   );
 }

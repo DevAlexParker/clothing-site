@@ -138,7 +138,7 @@ export default function ProductsView() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full min-w-0">
         {loading ? (
           <div className="p-20 text-center">
             <div className="inline-block w-8 h-8 border-4 border-gray-100 border-t-gray-900 rounded-full animate-spin"></div>

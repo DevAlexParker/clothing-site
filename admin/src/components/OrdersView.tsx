@@ -205,9 +205,9 @@ export default function OrdersView() {
         ))}
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-6 min-w-0 w-full">
         {/* Orders Table */}
-        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[600px]">
+        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[600px] w-full min-w-0">
           <div className="p-5 border-b border-gray-100 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-gray-900">Order Management</h2>
@@ -229,13 +229,13 @@ export default function OrdersView() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-x-auto overflow-y-auto w-full">
             {loading ? (
               <div className="p-12 text-center">
                 <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-gray-800 rounded-full animate-spin"></div>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="bg-gray-50/80 text-[11px] uppercase tracking-wider text-gray-500 font-semibold sticky top-0 z-10">
                   <tr>
                     <th className="px-5 py-3 border-b border-gray-100">Order ID</th>
@@ -292,7 +292,7 @@ export default function OrdersView() {
 
         {/* Detail Panel */}
         {selectedOrder ? (
-          <div className="w-[440px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-fit sticky top-24">
+          <div className="w-full lg:w-[440px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-fit lg:sticky top-24">
             {/* Header */}
             <div className="p-5 border-b border-gray-100 flex justify-between items-start bg-gradient-to-r from-gray-50 to-white">
               <div>
@@ -461,7 +461,7 @@ export default function OrdersView() {
             </div>
           </div>
         ) : (
-          <div className="w-[440px] bg-white/50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 p-8 text-center h-[600px] sticky top-24">
+          <div className="hidden lg:flex w-[440px] bg-white/50 rounded-2xl border-2 border-dashed border-gray-200 flex-col items-center justify-center text-gray-400 p-8 text-center h-[600px] sticky top-24">
             <svg className="w-12 h-12 text-gray-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             <p className="font-medium">Select an order to manage</p>
             <p className="text-xs text-gray-300 mt-1">View details and update fulfillment status</p>

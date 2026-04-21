@@ -12,6 +12,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'sales'>('orders');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const tabTitles = {
     orders: 'Order Management',
@@ -101,32 +102,45 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex">
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col md:flex-row relative">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Navigation */}
-      <aside className="w-72 bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen">
-        <div className="p-8">
-          <h1 className="text-3xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
-            AURA
-            <span className="w-2 h-2 bg-gray-900 rounded-full mt-2"></span>
-          </h1>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Admin Control Area</p>
+      <aside className={`w-72 bg-white border-r border-gray-100 flex flex-col fixed inset-y-0 left-0 z-50 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-300 ease-in-out h-screen`}>
+        <div className="p-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
+              AURA
+              <span className="w-2 h-2 bg-gray-900 rounded-full mt-2"></span>
+            </h1>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">Admin Area</p>
+          </div>
+          <button className="md:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
           <button
-            onClick={() => setActiveTab('orders')}
+            onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${activeTab === 'orders' ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/10' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
           >
             <span className="font-bold text-sm tracking-wide">Orders</span>
           </button>
           <button
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => { setActiveTab('inventory'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${activeTab === 'inventory' ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/10' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
           >
             <span className="font-bold text-sm tracking-wide">Inventory</span>
           </button>
           <button
-            onClick={() => setActiveTab('sales')}
+            onClick={() => { setActiveTab('sales'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all ${activeTab === 'sales' ? 'bg-gray-900 text-white shadow-xl shadow-gray-900/10' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}
           >
             <span className="font-bold text-sm tracking-wide">Sales</span>
@@ -153,13 +167,18 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-10 overflow-y-auto">
-        <header className="flex justify-between items-center mb-10">
-          <div>
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Overview</h2>
-            <h3 className="text-3xl font-black text-gray-900">
-              {tabTitles[activeTab]}
-            </h3>
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto overflow-x-hidden w-full max-w-full">
+        <header className="flex justify-between items-center mb-10 w-full">
+          <div className="flex items-center gap-4">
+            <button className="md:hidden text-gray-500 hover:text-gray-900" onClick={() => setIsSidebarOpen(true)}>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <div>
+              <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Overview</h2>
+              <h3 className="text-2xl md:text-3xl font-black text-gray-900">
+                {tabTitles[activeTab]}
+              </h3>
+            </div>
           </div>
           <div className="flex gap-4 items-center">
             <AdminNotifications />

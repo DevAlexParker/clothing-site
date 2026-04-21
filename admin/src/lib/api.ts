@@ -142,6 +142,7 @@ export async function fetchOrders(): Promise<Order[]> {
   const res = await fetch(`${API_BASE}/orders`, {
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
 }
@@ -152,6 +153,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, me
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, message }),
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to update order status');
   return res.json();
 }
@@ -162,6 +164,7 @@ export async function addTrackingEvent(orderId: string, status: string, message:
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ status, message }),
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to add tracking event');
   return res.json();
 }
@@ -179,6 +182,7 @@ export async function createProduct(product: AdminProduct): Promise<AdminProduct
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(product),
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to create product');
   return res.json();
 }
@@ -189,6 +193,7 @@ export async function updateProduct(id: string, product: AdminProduct): Promise<
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(product),
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to update product');
   return res.json();
 }
@@ -199,6 +204,7 @@ export async function updateProductStock(id: string, stock: number): Promise<Adm
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ stock }),
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to update stock');
   return res.json();
 }
@@ -208,6 +214,7 @@ export async function deleteProduct(id: string): Promise<void> {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to delete product');
 }
 
@@ -215,6 +222,7 @@ export async function fetchAdminNotifications(): Promise<AdminNotificationsRespo
   const res = await fetch(`${API_BASE}/admin/notifications`, {
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to fetch notifications');
   return res.json();
 }
@@ -224,6 +232,7 @@ export async function fetchSalesAnalytics(): Promise<SalesAnalytics> {
   const res = await fetch(`${API_BASE}/analytics/sales`, {
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to fetch analytics');
   return res.json();
 }
