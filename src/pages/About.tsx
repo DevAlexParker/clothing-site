@@ -51,7 +51,7 @@ export default function About() {
         <p className="text-gray-400 font-light mb-8 max-w-md mx-auto">Follow our journey and stay updated with the latest drops and sustainable initiatives.</p>
         <div className="flex justify-center gap-6">
           <span className="text-white font-bold tracking-widest text-sm hover:text-gray-300 cursor-pointer underline underline-offset-4">INSTAGRAM</span>
-          <span className="text-white font-bold tracking-widest text-sm hover:text-gray-300 cursor-pointer underline underline-offset-4">TWITTER</span>
+          <span className="text-white font-bold tracking-widest text-sm hover:text-gray-300 cursor-pointer underline underline-offset-4">X</span>
           <span className="text-white font-bold tracking-widest text-sm hover:text-gray-300 cursor-pointer underline underline-offset-4">JOURNAL</span>
         </div>
       </div>
