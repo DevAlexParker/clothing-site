@@ -9,7 +9,10 @@ export interface IProduct extends Document {
   sizes: string[];
   stock: number;
   isNewArrival?: boolean;
+  gender: 'men' | 'women' | 'unisex';
   merchant_id?: mongoose.Types.ObjectId;
+  isDeleted?: boolean;
+  deletedAt?: Date;
 }
 
 const ProductSchema = new Schema<IProduct>({
@@ -24,7 +27,10 @@ const ProductSchema = new Schema<IProduct>({
   sizes: [{ type: String }],
   stock: { type: Number, default: 0, min: 0 },
   isNewArrival: { type: Boolean, default: false },
+  gender: { type: String, enum: ['men', 'women', 'unisex'], default: 'unisex' },
   merchant_id: { type: Schema.Types.ObjectId, ref: 'Merchant' },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
 }, {
   timestamps: true,
   toJSON: {

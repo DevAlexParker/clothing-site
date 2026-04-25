@@ -176,11 +176,7 @@ async function seed() {
   // Insert merchant
   const merchant = await Merchant.create({
     brandName: 'AURA',
-    isActive: true,
-    aiSettings: {
-      toneOfVoice: 'sophisticated, minimalist, and helpful',
-      styleFocus: 'Premium contemporary fashion'
-    }
+    isActive: true
   });
   console.log(`🏢 Seeded Merchant: ${merchant.brandName} (ID: ${merchant._id})`);
 

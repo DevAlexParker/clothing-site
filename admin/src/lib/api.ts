@@ -72,6 +72,8 @@ export interface Order {
   items: OrderItem[];
   totalAmount: number;
   trackingHistory: TrackingEvent[];
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface AdminProduct {
@@ -84,6 +86,9 @@ export interface AdminProduct {
   sizes: string[];
   stock: number;
   isNewArrival?: boolean;
+  gender: 'men' | 'women' | 'unisex';
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export type AdminNotificationType = 'low_stock' | 'out_of_stock' | 'new_order';
@@ -138,13 +143,74 @@ export interface SalesAnalytics {
 }
 
 // ── Orders ──
-export async function fetchOrders(): Promise<Order[]> {
-  const res = await fetch(`${API_BASE}/orders`, {
+export async function fetchOrders(deleted: boolean = false): Promise<Order[]> {
+  const res = await fetch(`${API_BASE}/orders?deleted=${deleted}`, {
     headers: { ...authHeaders() },
   });
   if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to fetch orders');
   return res.json();
+}
+
+export async function softDeleteOrder(orderId: string): Promise<Order> {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/soft-delete`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to delete order');
+  const data = await res.json();
+  return data.order;
+}
+
+export async function restoreOrder(orderId: string): Promise<Order> {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/restore`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to restore order');
+  const data = await res.json();
+  return data.order;
+}
+
+export async function permanentlyDeleteOrder(orderId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/orders/${orderId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to permanently delete order');
+}
+
+export async function deleteOrdersBulk(orderIds: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/orders/bulk-delete`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ orderIds }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to bulk delete orders');
+}
+
+export async function softDeleteOrdersBulk(orderIds: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/orders/bulk-soft-delete`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ orderIds }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to bulk soft delete orders');
+}
+
+export async function restoreOrdersBulk(orderIds: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/orders/bulk-restore`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ orderIds }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to bulk restore orders');
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus, message?: string): Promise<Order> {
@@ -170,8 +236,8 @@ export async function addTrackingEvent(orderId: string, status: string, message:
 }
 
 // ── Products ──
-export async function fetchProducts(): Promise<AdminProduct[]> {
-  const res = await fetch(`${API_BASE}/products`);
+export async function fetchProducts(deleted: boolean = false): Promise<AdminProduct[]> {
+  const res = await fetch(`${API_BASE}/products?deleted=${deleted}`);
   if (!res.ok) throw new Error('Failed to fetch products');
   return res.json();
 }
@@ -209,13 +275,88 @@ export async function updateProductStock(id: string, stock: number): Promise<Adm
   return res.json();
 }
 
-export async function deleteProduct(id: string): Promise<void> {
+export async function softDeleteProduct(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/${id}/soft-delete`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to delete product');
+}
+
+export async function restoreProduct(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/${id}/restore`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to restore product');
+}
+
+export async function permanentlyDeleteProduct(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/products/${id}`, {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
   if (res.status === 401) { adminLogout(); window.location.reload(); }
-  if (!res.ok) throw new Error('Failed to delete product');
+  if (!res.ok) throw new Error('Failed to permanently delete product');
+}
+
+export async function permanentlyDeleteProductsBulk(ids: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/bulk`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ ids }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to delete products');
+}
+
+export async function softDeleteProductsBulk(ids: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/bulk-soft-delete`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ ids }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to delete products');
+}
+
+export async function restoreProductsBulk(ids: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/bulk-restore`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ ids }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to restore products');
+}
+
+export async function updateProductsStockBulk(ids: string[], stock: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/bulk-stock`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ ids, stock }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to update stock');
+}
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  const res = await fetch(`${API_BASE}/products/upload`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData,
+  });
+  
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to upload image');
+  
+  const data = await res.json();
+  return data.url;
 }
 
 export async function fetchAdminNotifications(): Promise<AdminNotificationsResponse> {
@@ -265,6 +406,16 @@ export async function createCampaign(type: string, message: string): Promise<Cam
   if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to create campaign');
   return res.json();
+}
+
+export async function deleteCampaignsBulk(ids: string[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/campaigns/bulk`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ ids }),
+  });
+  if (res.status === 401) { adminLogout(); window.location.reload(); }
+  if (!res.ok) throw new Error('Failed to delete campaigns');
 }
 
 // ── Helpers ──

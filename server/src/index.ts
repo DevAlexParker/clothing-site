@@ -22,6 +22,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const app = express();
 app.use(securityHeaders);
 app.use(cookieParser());
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 const PORT = process.env.PORT || 5000;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')

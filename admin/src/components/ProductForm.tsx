@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createProduct, updateProduct, type AdminProduct } from '../lib/api';
+import { createProduct, updateProduct, uploadProductImage, type AdminProduct } from '../lib/api';
 
 interface ProductFormProps {
   product: AdminProduct | null;
@@ -21,6 +21,7 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
     sizes: [],
     stock: 0,
     isNewArrival: false,
+    gender: 'unisex',
   });
 
   useEffect(() => {
@@ -77,6 +78,24 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
       ? formData.sizes.filter(s => s !== size)
       : [...formData.sizes, size];
     setFormData({ ...formData, sizes: newSizes });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const url = await uploadProductImage(file);
+      const newImgs = [...formData.images];
+      newImgs[index] = url;
+      setFormData({ ...formData, images: newImgs });
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -157,6 +176,26 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
           </div>
 
           <div className="space-y-4">
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Gender Target (For AI Try-On)</label>
+            <div className="flex gap-4">
+              {['men', 'women', 'unisex'].map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, gender: g as any })}
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-widest border-2 transition-all ${
+                    formData.gender === g 
+                      ? 'bg-gray-900 border-gray-900 text-white shadow-lg' 
+                      : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
             <div className="flex justify-between items-center">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Images (URLs)</label>
               <button type="button" onClick={() => handleAddField('images')} className="text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-tighter">Add More</button>
@@ -164,18 +203,29 @@ export default function ProductForm({ product, onClose, onSuccess }: ProductForm
             <div className="space-y-3">
               {formData.images.map((img, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <input
-                    type="url"
-                    required
-                    value={img}
-                    onChange={e => {
-                      const newImgs = [...formData.images];
-                      newImgs[idx] = e.target.value;
-                      setFormData({ ...formData, images: newImgs });
-                    }}
-                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/5 text-sm"
-                    placeholder="https://images.unsplash.com/..."
-                  />
+                  <div className="relative flex-1 group">
+                    <input
+                      type="text"
+                      required
+                      value={img}
+                      onChange={e => {
+                        const newImgs = [...formData.images];
+                        newImgs[idx] = e.target.value;
+                        setFormData({ ...formData, images: newImgs });
+                      }}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-900/5 text-sm"
+                      placeholder="https://images.unsplash.com/ or local upload..."
+                    />
+                    <label className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer p-1.5 hover:bg-white rounded-lg transition-all shadow-sm group-hover:scale-105 active:scale-95">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => handleFileUpload(e, idx)}
+                      />
+                    </label>
+                  </div>
                   {formData.images.length > 1 && (
                     <button type="button" onClick={() => handleRemoveField('images', idx)} className="p-3 text-red-400 hover:bg-red-50 rounded-xl transition-all">
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>

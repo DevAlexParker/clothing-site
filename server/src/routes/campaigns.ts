@@ -94,4 +94,20 @@ router.post('/', authenticate, authorize(['admin']), async (req, res) => {
   }
 });
 
+// DELETE /api/campaigns/bulk — Delete multiple campaigns
+router.delete('/bulk', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'No campaign IDs provided' });
+      return;
+    }
+    await Campaign.deleteMany({ _id: { $in: ids } });
+    res.json({ message: 'Campaigns deleted successfully' });
+  } catch (error) {
+    console.error('Error bulk deleting campaigns:', error);
+    res.status(500).json({ error: 'Failed to delete campaigns' });
+  }
+});
+
 export default router;

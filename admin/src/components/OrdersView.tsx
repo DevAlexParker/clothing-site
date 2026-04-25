@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchOrders, updateOrderStatus, addTrackingEvent, formatPrice } from '../lib/api';
+import { fetchOrders, updateOrderStatus, addTrackingEvent, formatPrice, softDeleteOrder, restoreOrder, permanentlyDeleteOrder, softDeleteOrdersBulk, restoreOrdersBulk, deleteOrdersBulk } from '../lib/api';
 import type { Order, OrderStatus } from '../lib/api';
 
 // ── Predefined Process Steps (order fulfillment workflow) ──────────────────
@@ -29,22 +29,34 @@ export default function OrdersView() {
   const [selectedProcessIdx, setSelectedProcessIdx] = useState<number | null>(null);
   const [customStatus, setCustomStatus] = useState('');
   const [customMessage, setCustomMessage] = useState('');
+  const [recycleBinMode, setRecycleBinMode] = useState(false);
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingBulk, setDeletingBulk] = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
-      const data = await fetchOrders();
-      setOrders(data);
+      const [activeOrders, deletedOrders] = await Promise.all([
+        fetchOrders(false),
+        fetchOrders(true)
+      ]);
+      
+      setOrders(recycleBinMode ? deletedOrders : activeOrders);
+      setDeletedCount(deletedOrders.length);
       setLastRefreshed(new Date());
+      
       if (selectedOrder) {
+        const data = recycleBinMode ? deletedOrders : activeOrders;
         const updated = data.find(o => o.orderId === selectedOrder.orderId);
         if (updated) setSelectedOrder(updated);
+        else setSelectedOrder(null);
       }
     } catch (error) {
       console.error('Failed to load orders:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedOrder]);
+  }, [selectedOrder, recycleBinMode]);
 
   useEffect(() => {
     loadOrders();
@@ -107,6 +119,132 @@ export default function OrdersView() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  // ── Handle soft delete ──
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to move this order to the recycle bin?')) return;
+    setUpdating(true);
+    try {
+      await softDeleteOrder(orderId);
+      setOrders(prev => prev.filter(o => o.orderId !== orderId));
+      setSelectedOrder(null);
+      loadOrders();
+    } catch (error) {
+      console.error('Failed to delete order:', error);
+      alert('Failed to delete order.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // ── Handle restore ──
+  const handleRestoreOrder = async (orderId: string) => {
+    setUpdating(true);
+    try {
+      await restoreOrder(orderId);
+      setOrders(prev => prev.filter(o => o.orderId !== orderId));
+      setSelectedOrder(null);
+      loadOrders();
+    } catch (error) {
+      console.error('Failed to restore order:', error);
+      alert('Failed to restore order.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // ── Handle permanent delete ──
+  const handlePermanentDelete = async (orderId: string) => {
+    if (!confirm('CRITICAL: This will permanently delete the order from the database. This action cannot be undone. Continue?')) return;
+    setUpdating(true);
+    try {
+      await permanentlyDeleteOrder(orderId);
+      setOrders(prev => prev.filter(o => o.orderId !== orderId));
+      setSelectedOrder(null);
+      loadOrders();
+    } catch (error) {
+      console.error('Failed to permanently delete order:', error);
+      alert('Failed to permanently delete order.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleBulkSoftDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    if (!confirm(`Move ${count} selected orders to recycle bin?`)) return;
+    
+    setDeletingBulk(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await softDeleteOrdersBulk(idsArray);
+      setOrders(prev => prev.filter(o => !selectedIds.has(o.orderId)));
+      setSelectedIds(new Set());
+      loadOrders();
+    } catch (error) {
+      console.error('Failed bulk delete:', error);
+      alert('Failed to bulk delete orders.');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    
+    setDeletingBulk(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await restoreOrdersBulk(idsArray);
+      setOrders(prev => prev.filter(o => !selectedIds.has(o.orderId)));
+      setSelectedIds(new Set());
+      loadOrders();
+    } catch (error) {
+      console.error('Failed bulk restore:', error);
+      alert('Failed to bulk restore orders.');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    if (!confirm(`CRITICAL: Permanently delete ${count} selected orders? This cannot be undone.`)) return;
+    
+    setDeletingBulk(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await deleteOrdersBulk(idsArray);
+      setOrders(prev => prev.filter(o => !selectedIds.has(o.orderId)));
+      setSelectedIds(new Set());
+      loadOrders();
+    } catch (error) {
+      console.error('Failed bulk permanent delete:', error);
+      alert('Failed to bulk permanently delete orders.');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredOrders.length && filteredOrders.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredOrders.map(o => o.orderId)));
+    }
+  };
+
+  const toggleSelectOrder = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const resetModal = () => {
@@ -186,46 +324,103 @@ export default function OrdersView() {
   return (
     <div className="space-y-8">
       {/* Stats Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {[
           { label: 'Total Orders', value: stats.total, color: 'bg-gray-900 text-white', filter: 'All' as const },
           { label: 'Pending', value: stats.pending, color: 'bg-amber-50 text-amber-800 border border-amber-200', filter: 'Pending' as const },
           { label: 'Processing', value: stats.processing, color: 'bg-blue-50 text-blue-800 border border-blue-200', filter: 'Processing' as const },
           { label: 'Shipped', value: stats.shipped, color: 'bg-purple-50 text-purple-800 border border-purple-200', filter: 'Shipped' as const },
           { label: 'Delivered', value: stats.delivered, color: 'bg-emerald-50 text-emerald-800 border border-emerald-200', filter: 'Delivered' as const },
+          { label: 'Recycle Bin', value: deletedCount, color: 'bg-red-50 text-red-800 border border-red-200', filter: 'All' as const, isRecycle: true },
         ].map(stat => (
           <div 
             key={stat.label} 
-            onClick={() => setFilterStatus(stat.filter)}
-            className={`${stat.color} rounded-xl p-4 flex flex-col cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === stat.filter ? 'ring-2 ring-offset-2 ring-gray-900/20 shadow-lg' : ''}`}
+            onClick={() => {
+              if ('isRecycle' in stat) {
+                setRecycleBinMode(true);
+                setFilterStatus('All');
+              } else {
+                setRecycleBinMode(false);
+                setFilterStatus(stat.filter);
+              }
+            }}
+            className={`${stat.color} rounded-xl p-3 md:p-4 flex flex-col cursor-pointer transition-all hover:scale-[1.02] ${
+              ('isRecycle' in stat && recycleBinMode) || (!('isRecycle' in stat) && !recycleBinMode && filterStatus === stat.filter) 
+                ? 'ring-2 ring-offset-2 ring-gray-900/20 shadow-lg' 
+                : ''
+            }`}
           >
-            <span className="text-xs font-bold tracking-wider uppercase opacity-70">{stat.label}</span>
-            <span className="text-3xl font-black mt-1">{stat.value}</span>
+            <span className="text-[9px] md:text-xs font-bold tracking-wider uppercase opacity-70">{stat.label}</span>
+            <span className="text-2xl md:text-3xl font-black mt-1">{stat.value}</span>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 min-w-0 w-full">
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6 min-w-0 w-full">
         {/* Orders Table */}
-        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[600px] w-full min-w-0">
-          <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[400px] md:min-h-[600px] w-full min-w-0">
+          <div className="p-4 md:p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Order Management</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {filterStatus === 'All' ? 'Click an order to manage its fulfillment process' : `Showing ${filterStatus} orders`}
+              <h2 className="text-base md:text-lg font-bold text-gray-900">{recycleBinMode ? 'Recycle Bin' : 'Order Management'}</h2>
+              <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                {recycleBinMode ? 'Review and restore orders' : (filterStatus === 'All' ? 'Manage fulfillment process' : `Showing ${filterStatus} orders`)}
                 {filterStatus !== 'All' && (
                   <button onClick={() => setFilterStatus('All')} className="ml-2 text-blue-500 hover:underline">Show all</button>
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={loadOrders}
-                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1.5 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                {lastRefreshed.toLocaleTimeString()}
-              </button>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full sm:w-auto">
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 animate-slide-in mr-2 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                  <span className="text-[9px] font-bold text-gray-500">{selectedIds.size} selected</span>
+                  {recycleBinMode ? (
+                    <>
+                      <button 
+                        onClick={handleBulkRestore}
+                        disabled={deletingBulk}
+                        className="px-2 py-1 bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        Restore
+                      </button>
+                      <button 
+                        onClick={handleBulkPermanentDelete}
+                        disabled={deletingBulk}
+                        className="px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest rounded-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      onClick={handleBulkSoftDelete}
+                      disabled={deletingBulk}
+                      className="px-2 py-1 bg-gray-900 text-white text-[8px] font-black uppercase tracking-widest rounded-md hover:bg-black disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                {recycleBinMode ? (
+                  <span className="px-3 py-1.5 bg-red-100 text-red-700 text-[9px] font-bold rounded-full uppercase tracking-widest">Recycle Mode</span>
+                ) : (
+                  <button 
+                    onClick={() => setRecycleBinMode(true)}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[9px] font-bold rounded-full uppercase tracking-widest transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Bin
+                  </button>
+                )}
+                <button
+                  onClick={loadOrders}
+                  className="px-3 py-1.5 bg-white border border-gray-100 text-[9px] text-gray-400 hover:text-gray-600 font-bold rounded-full uppercase flex items-center gap-1.5 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Sync
+                </button>
+              </div>
             </div>
           </div>
 
@@ -238,6 +433,16 @@ export default function OrdersView() {
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead className="bg-gray-50/80 text-[11px] uppercase tracking-wider text-gray-500 font-semibold sticky top-0 z-10">
                   <tr>
+                    <th className="px-5 py-3 border-b border-gray-100">
+                      <button 
+                        onClick={toggleSelectAll}
+                        className={`w-4 h-4 rounded flex items-center justify-center transition-all border-2 ${selectedIds.size === filteredOrders.length && filteredOrders.length > 0 ? (recycleBinMode ? 'bg-red-600 border-red-600 text-white' : 'bg-black border-black text-white') : 'border-gray-300 hover:border-black bg-white'}`}
+                      >
+                        {selectedIds.size === filteredOrders.length && filteredOrders.length > 0 && (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                        )}
+                      </button>
+                    </th>
                     <th className="px-5 py-3 border-b border-gray-100">Order ID</th>
                     <th className="px-5 py-3 border-b border-gray-100">Date</th>
                     <th className="px-5 py-3 border-b border-gray-100">Customer</th>
@@ -250,14 +455,24 @@ export default function OrdersView() {
                 <tbody className="divide-y divide-gray-50">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-16 text-center text-gray-400">No orders found</td>
+                      <td colSpan={8} className="px-6 py-16 text-center text-gray-400">No orders found</td>
                     </tr>
                   ) : filteredOrders.map(order => (
                     <tr 
                       key={order.orderId} 
                       onClick={() => setSelectedOrder(order)}
-                      className={`hover:bg-gray-50/80 cursor-pointer transition-colors ${selectedOrder?.orderId === order.orderId ? 'bg-blue-50/50 border-l-2 border-l-blue-500' : ''}`}
+                      className={`hover:bg-gray-50/80 cursor-pointer transition-colors ${selectedOrder?.orderId === order.orderId ? 'bg-blue-50/50 border-l-2 border-l-blue-500' : ''} ${selectedIds.has(order.orderId) ? 'bg-blue-50/30' : ''}`}
                     >
+                      <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => toggleSelectOrder(order.orderId)}
+                          className={`w-4 h-4 rounded flex items-center justify-center transition-all border-2 ${selectedIds.has(order.orderId) ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 hover:border-black bg-white'}`}
+                        >
+                          {selectedIds.has(order.orderId) && (
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                          )}
+                        </button>
+                      </td>
                       <td className="px-5 py-3.5 text-sm font-bold text-gray-900 font-mono">#{order.orderId}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()}
@@ -449,6 +664,39 @@ export default function OrdersView() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* ── Action Buttons ── */}
+              <div className="pt-2 border-t border-gray-100 flex gap-2">
+                {recycleBinMode ? (
+                  <>
+                    <button
+                      onClick={() => handleRestoreOrder(selectedOrder.orderId)}
+                      disabled={updating}
+                      className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      RESTORE
+                    </button>
+                    <button
+                      onClick={() => handlePermanentDelete(selectedOrder.orderId)}
+                      disabled={updating}
+                      className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      HARD DELETE
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleDeleteOrder(selectedOrder.orderId)}
+                    disabled={updating}
+                    className="w-full bg-gray-50 text-gray-500 py-2.5 rounded-xl text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <svg className="w-4 h-4 transition-colors group-hover:text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    MOVE TO RECYCLE BIN
+                  </button>
+                )}
               </div>
             </div>
 

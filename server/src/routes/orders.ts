@@ -3,9 +3,21 @@ import { z } from 'zod';
 import { Order, type IOrder } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { authenticate, authorize, optionalAuthenticate, type AuthRequest } from '../middleware/auth.js';
+import { AuditLog } from '../models/AuditLog.js';
+import { Request } from 'express';
 
 const router = Router();
 const ORDER_STATUSES = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] as const;
+
+const logAudit = async (userId: any, action: string, targetType: string, req: Request, targetId: string, metadata: any = {}) => {
+  try {
+    await AuditLog.create({
+      userId, action, targetType, targetId,
+      ip: req.ip, userAgent: req.headers['user-agent'],
+      metadata
+    });
+  } catch (err) { console.error('Audit log failed:', err); }
+};
 
 const createOrderSchema = z.object({
   orderId: z.string().trim().min(3).max(64),
@@ -153,7 +165,7 @@ router.post('/', optionalAuthenticate, async (req: AuthRequest, res) => {
 // GET /api/orders/user — Get order history for current user
 router.get('/user', authenticate, async (req: AuthRequest, res) => {
   try {
-    const orders = await Order.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId: req.user._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     console.error('Error fetching user orders:', error);
@@ -161,10 +173,58 @@ router.get('/user', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-// GET /api/orders — Get all orders (used by Admin)
-router.get('/', authenticate, authorize(['admin']), async (_req, res) => {
+// POST /api/orders/:id/cancel — Cancel order (User initiated)
+router.post('/:id/cancel', authenticate, async (req: AuthRequest, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const order = await Order.findOne({ orderId: req.params.id });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    // Security: Ensure user owns the order
+    if (String(order.userId) !== String(req.user._id)) {
+      res.status(403).json({ error: 'Access denied.' });
+      return;
+    }
+
+    // Policy: Can only cancel if Pending or Processing
+    if (!['Pending', 'Processing'].includes(order.status)) {
+      res.status(400).json({ error: `Order cannot be cancelled. Current status is ${order.status}` });
+      return;
+    }
+
+    const previousStatus = order.status;
+    order.status = 'Cancelled';
+    order.trackingHistory.push({
+      status: 'Cancelled',
+      message: req.body.reason || 'Order cancelled by customer.',
+      timestamp: new Date()
+    });
+
+    await order.save();
+
+    // Restock items
+    for (const item of order.items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: item.quantity }
+      });
+    }
+
+    await logAudit(req.user._id, 'ORDER_CANCEL_USER', 'ORDER', req, order.orderId, { previousStatus, reason: req.body.reason });
+
+    res.json({ message: 'Order cancelled successfully', order });
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
+// GET /api/orders — Get all orders (used by Admin)
+router.get('/', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const showDeleted = req.query.deleted === 'true';
+    const orders = await Order.find({ isDeleted: showDeleted }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -253,6 +313,134 @@ router.post('/:id/tracking', authenticate, authorize(['admin']), async (req, res
     }
     console.error('Error adding tracking event:', error);
     res.status(500).json({ error: 'Failed to add tracking event' });
+  }
+});
+
+// PATCH /api/orders/:id/soft-delete — Move order to recycle bin
+router.patch('/:id/soft-delete', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.id });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    order.isDeleted = true;
+    order.deletedAt = new Date();
+    await order.save();
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_SOFT_DELETE', 'ORDER', req, order.orderId);
+
+    res.json({ message: 'Order moved to recycle bin', order });
+  } catch (error) {
+    console.error('Error soft deleting order:', error);
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
+
+// PATCH /api/orders/:id/restore — Restore order from recycle bin
+router.patch('/:id/restore', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const order = await Order.findOne({ orderId: req.params.id });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    order.isDeleted = false;
+    order.deletedAt = undefined;
+    await order.save();
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_RESTORE', 'ORDER', req, order.orderId);
+
+    res.json({ message: 'Order restored successfully', order });
+  } catch (error) {
+    console.error('Error restoring order:', error);
+    res.status(500).json({ error: 'Failed to restore order' });
+  }
+});
+
+// DELETE /api/orders/:id — Permanently delete an order
+router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const order = await Order.findOneAndDelete({ orderId: req.params.id });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_PERMANENT_DELETE', 'ORDER', req, req.params.id);
+
+    res.json({ message: 'Order permanently deleted' });
+  } catch (error) {
+    console.error('Error permanently deleting order:', error);
+    res.status(500).json({ error: 'Failed to permanently delete order' });
+  }
+});
+
+// PATCH /api/orders/bulk-soft-delete — Soft delete multiple orders
+router.patch('/bulk-soft-delete', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+    if (!Array.isArray(orderIds)) {
+      res.status(400).json({ error: 'orderIds must be an array' });
+      return;
+    }
+
+    await Order.updateMany(
+      { orderId: { $in: orderIds } },
+      { $set: { isDeleted: true, deletedAt: new Date() } }
+    );
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_BULK_SOFT_DELETE', 'ORDER', req, orderIds.join(', '));
+
+    res.json({ message: `${orderIds.length} orders moved to recycle bin` });
+  } catch (error) {
+    console.error('Error bulk soft deleting orders:', error);
+    res.status(500).json({ error: 'Failed to bulk delete orders' });
+  }
+});
+
+// PATCH /api/orders/bulk-restore — Restore multiple orders
+router.patch('/bulk-restore', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+    if (!Array.isArray(orderIds)) {
+      res.status(400).json({ error: 'orderIds must be an array' });
+      return;
+    }
+
+    await Order.updateMany(
+      { orderId: { $in: orderIds } },
+      { $set: { isDeleted: false }, $unset: { deletedAt: "" } }
+    );
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_BULK_RESTORE', 'ORDER', req, orderIds.join(', '));
+
+    res.json({ message: `${orderIds.length} orders restored successfully` });
+  } catch (error) {
+    console.error('Error bulk restoring orders:', error);
+    res.status(500).json({ error: 'Failed to bulk restore orders' });
+  }
+});
+
+// DELETE /api/orders/bulk-delete — Permanently delete multiple orders
+router.delete('/bulk-delete', authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+    if (!Array.isArray(orderIds)) {
+      res.status(400).json({ error: 'orderIds must be an array' });
+      return;
+    }
+
+    await Order.deleteMany({ orderId: { $in: orderIds } });
+
+    await logAudit((req as AuthRequest).user._id, 'ORDER_BULK_PERMANENT_DELETE', 'ORDER', req, orderIds.join(', '));
+
+    res.json({ message: `${orderIds.length} orders permanently deleted` });
+  } catch (error) {
+    console.error('Error bulk deleting orders:', error);
+    res.status(500).json({ error: 'Failed to bulk delete orders' });
   }
 });
 

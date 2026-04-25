@@ -32,7 +32,8 @@ router.get('/sales', authenticate, authorize(['admin']), async (_req, res) => {
 
       const orders = await Order.find({
         createdAt: { $gte: start, $lte: end },
-        status: { $ne: 'Cancelled' }
+        status: { $ne: 'Cancelled' },
+        isDeleted: { $ne: true }
       });
 
       const revenue = orders.reduce((sum, o) => sum + toSafeNumber(o.totalAmount), 0);
@@ -53,7 +54,8 @@ router.get('/sales', authenticate, authorize(['admin']), async (_req, res) => {
     const currentMonthStart = getMonthStart(0);
     const dailyOrders = await Order.find({
       createdAt: { $gte: currentMonthStart },
-      status: { $ne: 'Cancelled' }
+      status: { $ne: 'Cancelled' },
+      isDeleted: { $ne: true }
     });
 
     const dailySales: Record<string, { revenue: number; orders: number }> = {};
@@ -73,7 +75,7 @@ router.get('/sales', authenticate, authorize(['admin']), async (_req, res) => {
     });
 
     // Top products by revenue
-    const allOrders = await Order.find({ status: { $ne: 'Cancelled' } });
+    const allOrders = await Order.find({ status: { $ne: 'Cancelled' }, isDeleted: { $ne: true } });
     const productRevenue: Record<string, { name: string; revenue: number; unitsSold: number; image: string }> = {};
     
     allOrders.forEach(order => {

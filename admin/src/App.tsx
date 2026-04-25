@@ -20,7 +20,7 @@ export default function App() {
     orders: 'Order Management',
     inventory: 'Product Inventory',
     sales: 'Sales Analytics',
-    campaigns: 'SMS Campaigns',
+    campaigns: 'Campaign Management',
   };
 
   const handleAdminLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -51,10 +51,10 @@ export default function App() {
         <div className="pointer-events-none absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-fuchsia-600/20 blur-[120px] animate-pulse" />
         <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px] animate-pulse" />
 
-        <div className="relative z-10 text-center mb-10 text-white">
+        <div className="relative z-10 text-center mb-10 text-white px-4">
           <p className="text-[10px] font-black tracking-[0.4em] uppercase text-fuchsia-400 mb-4">Admin Control Center</p>
-          <h1 className="text-6xl font-black tracking-tighter mb-4">AURA Control Room</h1>
-          <p className="text-slate-400 text-sm max-w-md mx-auto">
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-4">AURA Control Room</h1>
+          <p className="text-slate-400 text-xs md:text-sm max-w-md mx-auto px-2">
             Manage orders, inventory, and sales insights from one secure dashboard.
           </p>
         </div>
@@ -190,7 +190,7 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto overflow-x-hidden w-full max-w-full">
+      <main className="flex-1 p-4 md:p-10 overflow-y-auto overflow-x-hidden w-full max-w-full">
         <header className="flex justify-between items-center mb-10 w-full">
           <div className="flex items-center gap-4">
             <button className="md:hidden text-gray-500 hover:text-gray-900" onClick={() => setIsSidebarOpen(true)}>
@@ -198,7 +198,7 @@ export default function App() {
             </button>
             <div>
               <h2 className="hidden md:block text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Overview</h2>
-              <h3 className="text-2xl md:text-3xl font-black text-gray-900">
+              <h3 className={`text-2xl md:text-3xl font-black text-gray-900 ${activeTab === 'campaigns' ? 'font-bold' : ''}`}>
                 {tabTitles[activeTab]}
               </h3>
             </div>

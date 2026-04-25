@@ -11,6 +11,7 @@ export interface Product {
   isNew?: boolean;
   stock?: number;
   isNewArrival?: boolean;
+  gender: 'men' | 'women' | 'unisex';
 }
 
 export interface OrderItem {
@@ -78,4 +79,11 @@ export async function createOrder(order: CreateOrderPayload): Promise<Order> {
   });
   if (!res.ok) throw new Error('Failed to create order');
   return res.json();
+}
+
+export function resolveImageUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:')) return url;
+  const base = API_BASE.replace(/\/api$/, '');
+  return `${base}${url}`;
 }

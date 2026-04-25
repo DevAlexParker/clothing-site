@@ -128,8 +128,8 @@ export default function AuthModals({ isOpen, onClose, initialType }: AuthModalPr
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
-      <div className="glass-card w-full max-w-md relative z-10 p-10 rounded-[2.5rem] border border-white/50 animate-fade-up">
-        <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black">✕</button>
+      <div className="glass-card w-full max-w-md relative z-10 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] border border-white/50 animate-fade-up max-h-[95vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-black p-2">✕</button>
 
         {flow === 'verify' ? (
           <div className="text-center">

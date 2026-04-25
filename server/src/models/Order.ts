@@ -32,6 +32,8 @@ export interface IOrder extends Document {
     message: string;
     timestamp: Date;
   }[];
+  isDeleted: boolean;
+  deletedAt?: Date;
 }
 
 const OrderItemSchema = new Schema<IOrderItem>({
@@ -77,6 +79,8 @@ const OrderSchema = new Schema<IOrder>({
   },
   items: [OrderItemSchema],
   totalAmount: { type: Number, required: true },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
 }, {
   timestamps: true,
   toJSON: {
@@ -92,3 +96,4 @@ const OrderSchema = new Schema<IOrder>({
 });
 
 export const Order = mongoose.model<IOrder>('Order', OrderSchema);
+

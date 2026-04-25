@@ -52,11 +52,11 @@ export default function Collections({ onProductClick, initialFilter = 'all' }: C
   };
 
   return (
-    <div className="animate-fade-in relative z-10 w-full pt-32 pb-32 px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col mb-12 border-b border-gray-200 pb-8">
-        <div className="flex justify-between items-end mb-8">
+    <div className="animate-fade-in relative z-10 w-full pt-28 md:pt-32 pb-24 md:pb-32 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="flex flex-col mb-8 md:mb-12 border-b border-gray-200 pb-6 md:pb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-8 gap-4">
           <div>
-            <h1 className="text-5xl font-extrabold tracking-tight mb-4 capitalize">
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2 md:mb-4 capitalize">
               {categoryFilter === 'new-arrivals' ? 'New Arrivals' : categoryFilter === 'all' ? 'All Collections' : categoryFilter}
             </h1>
             <p className="text-gray-500 font-light">Elevate your wardrobe with our meticulously crafted pieces.</p>
@@ -132,17 +132,17 @@ export default function Collections({ onProductClick, initialFilter = 'all' }: C
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-8 md:gap-y-12">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="glass-card rounded-3xl p-6 animate-pulse">
-              <div className="h-80 rounded-2xl bg-gray-200 mb-6"></div>
-              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div key={i} className="glass-card rounded-2xl md:rounded-3xl p-3 md:p-6 animate-pulse">
+              <div className="h-48 md:h-80 rounded-xl md:rounded-2xl bg-gray-200 mb-4 md:mb-6"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} onClick={onProductClick} />
           ))}

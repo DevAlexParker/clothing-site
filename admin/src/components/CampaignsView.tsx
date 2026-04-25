@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchCampaigns, createCampaign, type Campaign } from '../lib/api';
+import { fetchCampaigns, createCampaign, deleteCampaignsBulk, type Campaign } from '../lib/api';
 
 export default function CampaignsView() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -7,6 +7,8 @@ export default function CampaignsView() {
   const [submitting, setSubmitting] = useState(false);
   const [type, setType] = useState('flash_sale');
   const [message, setMessage] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingBulk, setDeletingBulk] = useState(false);
 
   const loadCampaigns = async () => {
     try {
@@ -40,6 +42,42 @@ export default function CampaignsView() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    if (!confirm(`Are you sure you want to delete ${count} selected campaign record${count > 1 ? 's' : ''}?`)) return;
+    
+    setDeletingBulk(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await deleteCampaignsBulk(idsArray);
+      setCampaigns(prev => prev.filter(c => !selectedIds.has(c._id)));
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Failed to delete campaigns:', error);
+      alert('Failed to delete campaigns.');
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === campaigns.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(campaigns.map(c => c._id)));
+    }
+  };
+
+  const toggleSelectCampaign = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const getTypeStyle = (t: string) => {
     switch (t) {
       case 'restock_alert': return 'bg-blue-50 text-blue-700 border-blue-200';
@@ -53,14 +91,12 @@ export default function CampaignsView() {
 
   return (
     <div className="space-y-8 min-w-0 max-w-full">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900">SMS Campaigns</h2>
-          <p className="text-sm text-gray-500 mt-1">Engage opted-in customers with exclusive offers and alerts.</p>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <h2 className="text-xl md:text-2xl font-black text-gray-900">Campaign Management</h2>
+        <p className="text-xs md:text-sm text-gray-500">Engage customers with exclusive alerts.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 w-full min-w-0">
         
         {/* Create Campaign Form */}
         <div className="lg:col-span-1">
@@ -126,8 +162,25 @@ export default function CampaignsView() {
         {/* Campaign History */}
         <div className="lg:col-span-2 w-full min-w-0">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden w-full min-w-0 flex flex-col h-full">
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-900">Campaign History</h3>
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 animate-slide-in">
+                  <span className="text-xs font-bold text-red-600">{selectedIds.size} selected</span>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={deletingBulk}
+                    className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all flex items-center gap-1.5 disabled:opacity-50 shadow-lg shadow-red-600/10"
+                  >
+                    {deletingBulk ? (
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    )}
+                    Delete Records
+                  </button>
+                </div>
+              )}
             </div>
             
             {loading ? (
@@ -144,6 +197,16 @@ export default function CampaignsView() {
                 <table className="w-full text-left border-collapse min-w-[600px]">
                   <thead className="bg-gray-50/80 text-[10px] uppercase tracking-wider text-gray-400 font-bold border-b border-gray-100 sticky top-0">
                     <tr>
+                      <th className="px-6 py-4 w-10">
+                        <button 
+                          onClick={toggleSelectAll}
+                          className={`w-5 h-5 rounded flex items-center justify-center transition-all border-2 ${selectedIds.size === campaigns.length && campaigns.length > 0 ? 'bg-black border-black text-white' : 'border-gray-200 hover:border-black bg-white'}`}
+                        >
+                          {selectedIds.size === campaigns.length && campaigns.length > 0 && (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                          )}
+                        </button>
+                      </th>
                       <th className="px-6 py-4">Status & Type</th>
                       <th className="px-6 py-4">Message Preview</th>
                       <th className="px-6 py-4">Audience</th>
@@ -152,7 +215,17 @@ export default function CampaignsView() {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {campaigns.map((c) => (
-                      <tr key={c._id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={c._id} className={`hover:bg-gray-50/50 transition-colors ${selectedIds.has(c._id) ? 'bg-blue-50/30' : ''}`}>
+                        <td className="px-6 py-5 align-top">
+                          <button 
+                            onClick={() => toggleSelectCampaign(c._id)}
+                            className={`w-5 h-5 rounded flex items-center justify-center transition-all border-2 ${selectedIds.has(c._id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 hover:border-black bg-white'}`}
+                          >
+                            {selectedIds.has(c._id) && (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                            )}
+                          </button>
+                        </td>
                         <td className="px-6 py-5 align-top">
                           <div className="flex flex-col gap-2 items-start">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getTypeStyle(c.type)}`}>

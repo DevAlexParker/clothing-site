@@ -93,50 +93,54 @@ export default function SalesView() {
             </div>
           </div>
 
-          {/* Bar Chart */}
-          <div className="flex items-end gap-[2px] h-48 relative">
-            {normalizedDailySales.map((point) => {
-              const height = maxDailyRevenue > 0 ? (point.revenue / maxDailyRevenue) * 100 : 0;
-              const isToday = point.day === today;
-              const isFuture = point.day > today;
-              return (
-                <div key={point.day} className="flex-1 h-full flex flex-col justify-end items-center group relative">
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-20">
-                    <div className="bg-gray-900 text-white text-[10px] font-bold px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
-                      <p>Day {point.day}</p>
-                      <p className="text-emerald-300">{formatPrice(point.revenue)}</p>
-                      <p className="text-gray-400">{point.orders} orders</p>
+          {/* Bar Chart Container - Scrollable on mobile */}
+          <div className="overflow-x-auto pb-4 -mx-1 px-1">
+            <div className="min-w-[500px] lg:min-w-0">
+              <div className="flex items-end gap-[2px] h-48 relative">
+                {normalizedDailySales.map((point) => {
+                  const height = maxDailyRevenue > 0 ? (point.revenue / maxDailyRevenue) * 100 : 0;
+                  const isToday = point.day === today;
+                  const isFuture = point.day > today;
+                  return (
+                    <div key={point.day} className="flex-1 h-full flex flex-col justify-end items-center group relative">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center z-20">
+                        <div className="bg-gray-900 text-white text-[10px] font-bold px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
+                          <p>Day {point.day}</p>
+                          <p className="text-emerald-300">{formatPrice(point.revenue)}</p>
+                          <p className="text-gray-400">{point.orders} orders</p>
+                        </div>
+                        <div className="w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
+                      </div>
+                      {/* Bar */}
+                      <div
+                        className={`w-full rounded-t-sm transition-all duration-300 cursor-pointer ${
+                          isFuture
+                            ? 'bg-gray-50'
+                            : isToday
+                            ? 'bg-gradient-to-t from-blue-600 to-blue-400 shadow-sm shadow-blue-200'
+                            : height > 0
+                            ? 'bg-gradient-to-t from-gray-800 to-gray-600 hover:from-blue-600 hover:to-blue-400'
+                            : 'bg-gray-100'
+                        }`}
+                        style={{ height: `${Math.max(height, 2)}%` }}
+                      />
                     </div>
-                    <div className="w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
-                  </div>
-                  {/* Bar */}
-                  <div
-                    className={`w-full rounded-t-sm transition-all duration-300 cursor-pointer ${
-                      isFuture
-                        ? 'bg-gray-50'
-                        : isToday
-                        ? 'bg-gradient-to-t from-blue-600 to-blue-400 shadow-sm shadow-blue-200'
-                        : height > 0
-                        ? 'bg-gradient-to-t from-gray-800 to-gray-600 hover:from-blue-600 hover:to-blue-400'
-                        : 'bg-gray-100'
-                    }`}
-                    style={{ height: `${Math.max(height, 2)}%` }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          {/* X-axis labels */}
-          <div className="flex gap-[2px] mt-2">
-            {normalizedDailySales.map((point) => (
-              <div key={point.day} className="flex-1 text-center">
-                {(point.day === 1 || point.day === 10 || point.day === 20 || point.day === normalizedDailySales.length) && (
-                  <span className="text-[9px] text-gray-400 font-bold">{point.day}</span>
-                )}
+                  );
+                })}
               </div>
-            ))}
+
+              {/* X-axis labels */}
+              <div className="flex gap-[2px] mt-2">
+                {normalizedDailySales.map((point) => (
+                  <div key={point.day} className="flex-1 text-center">
+                    {(point.day === 1 || point.day === 10 || point.day === 20 || point.day === normalizedDailySales.length) && (
+                      <span className="text-[9px] text-gray-400 font-bold">{point.day}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

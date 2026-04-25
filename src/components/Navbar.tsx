@@ -104,29 +104,83 @@ export default function Navbar({
       </div>
 
       {/* Mobile Menu Dropdown */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl mx-4 py-4 flex flex-col gap-4 border border-gray-100">
-          <button 
-            onClick={() => handleMobileMenuClick('collections')} 
-            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left ${currentPage === 'collections' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
-          >
-            Collections
-          </button>
-          <button 
-            onClick={() => handleMobileMenuClick('new-arrivals')} 
-            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left flex items-center justify-between ${currentPage === 'new-arrivals' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
-          >
-            New Arrivals
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-          </button>
-          <button 
-            onClick={() => handleMobileMenuClick('about')} 
-            className={`text-sm font-bold tracking-widest uppercase px-6 py-2 text-left ${currentPage === 'about' ? 'text-black bg-gray-50' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`}
-          >
-            About
-          </button>
+      <div 
+        className={`md:hidden fixed inset-0 z-50 transition-all duration-500 ease-in-out ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      >
+        {/* Backdrop */}
+        <div 
+          className="absolute inset-0 bg-black/40 backdrop-blur-md" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+        
+        {/* Menu Panel */}
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-[80%] bg-white shadow-2xl transition-transform duration-500 ease-out transform ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          <div className="flex flex-col h-full">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <span className="text-xl font-black tracking-tighter">AURA.</span>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-8 flex flex-col">
+              <button 
+                onClick={() => handleMobileMenuClick('collections')} 
+                className={`text-2xl font-bold tracking-tight px-8 py-4 text-left transition-colors ${currentPage === 'collections' ? 'text-black' : 'text-gray-400 hover:text-black'}`}
+              >
+                Collections
+              </button>
+              <button 
+                onClick={() => handleMobileMenuClick('new-arrivals')} 
+                className={`text-2xl font-bold tracking-tight px-8 py-4 text-left flex items-center justify-between transition-colors ${currentPage === 'new-arrivals' ? 'text-black' : 'text-gray-400 hover:text-black'}`}
+              >
+                New Arrivals
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500 mr-4"></span>
+              </button>
+              <button 
+                onClick={() => handleMobileMenuClick('about')} 
+                className={`text-2xl font-bold tracking-tight px-8 py-4 text-left transition-colors ${currentPage === 'about' ? 'text-black' : 'text-gray-400 hover:text-black'}`}
+              >
+                About
+              </button>
+            </div>
+
+            <div className="p-8 bg-gray-50 border-t border-gray-100">
+              {user ? (
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-black text-lg">
+                    {user.name[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">{user.name}</p>
+                    <button 
+                      onClick={() => handleMobileMenuClick('account')}
+                      className="text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-black"
+                    >
+                      View Account
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => { onOpenAuth('login'); setIsMobileMenuOpen(false); }}
+                  className="w-full bg-black text-white py-4 rounded-2xl font-bold tracking-widest uppercase text-sm mb-4 shadow-lg active:scale-95 transition-transform"
+                >
+                  Sign In
+                </button>
+              )}
+              <div className="flex gap-4 justify-center opacity-40">
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">© 2026 AURA STUDIO</span>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
     </header>
   );
 }

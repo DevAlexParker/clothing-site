@@ -1,5 +1,5 @@
 import type { Product } from '../data';
-import { formatPrice } from '../data';
+import { formatPrice, resolveImageUrl } from '../data';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -243,7 +243,7 @@ export default function CartFlyout({
               {cart.map((item, idx) => (
                 <div key={idx} className="flex gap-4 glass-panel p-3 rounded-2xl relative group">
                   <div className="w-20 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img src={(item.product.images && item.product.images.length > 0) ? item.product.images[0] : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800'} className="w-full h-full object-cover" alt={item.product.name} loading="lazy" />
+                    <img src={(item.product.images && item.product.images.length > 0) ? resolveImageUrl(item.product.images[0]) : 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800'} className="w-full h-full object-cover" alt={item.product.name} loading="lazy" />
                   </div>
                   <div className="flex-1 flex flex-col justify-between py-1">
                     <div>
