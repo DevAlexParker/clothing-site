@@ -27,9 +27,12 @@ export interface IOrder extends Document {
   paymentStatus: 'pending' | 'paid' | 'failed';
   paymentMethod: 'stripe' | 'cod';
   userId?: string;
+  estimatedDelivery?: Date;
+  cancellationReason?: string;
   trackingHistory: {
     status: string;
     message: string;
+    location?: string;
     timestamp: Date;
   }[];
   isDeleted: boolean;
@@ -65,9 +68,12 @@ const OrderSchema = new Schema<IOrder>({
     default: 'pending',
   },
   paymentIntentId: { type: String },
+  estimatedDelivery: { type: Date },
+  cancellationReason: { type: String },
   trackingHistory: [{
     status: { type: String, required: true },
     message: { type: String, required: true },
+    location: { type: String },
     timestamp: { type: Date, default: Date.now },
   }],
   customerInfo: {

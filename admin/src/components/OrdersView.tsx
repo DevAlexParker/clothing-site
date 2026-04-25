@@ -29,6 +29,8 @@ export default function OrdersView() {
   const [selectedProcessIdx, setSelectedProcessIdx] = useState<number | null>(null);
   const [customStatus, setCustomStatus] = useState('');
   const [customMessage, setCustomMessage] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [estDelivery, setEstDelivery] = useState('');
   const [recycleBinMode, setRecycleBinMode] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -85,7 +87,7 @@ export default function OrdersView() {
         return;
       }
 
-      const updated = await addTrackingEvent(selectedOrder.orderId, status, message);
+      const updated = await addTrackingEvent(selectedOrder.orderId, status, message, eventLocation.trim() || undefined);
       setOrders(prev => prev.map(o => o.orderId === selectedOrder.orderId ? updated : o));
       setSelectedOrder(updated);
       resetModal();
@@ -108,7 +110,7 @@ export default function OrdersView() {
         'Delivered': 'Order has been delivered successfully.',
         'Cancelled': 'Order has been cancelled.',
       };
-      const updated = await updateOrderStatus(orderId, newStatus, statusMessages[newStatus]);
+      const updated = await updateOrderStatus(orderId, newStatus, statusMessages[newStatus], undefined, estDelivery || undefined);
       setOrders(prev => prev.map(o => o.orderId === orderId ? updated : o));
       if (selectedOrder && selectedOrder.orderId === orderId) {
         setSelectedOrder(updated);
@@ -253,6 +255,7 @@ export default function OrdersView() {
     setSelectedProcessIdx(null);
     setCustomStatus('');
     setCustomMessage('');
+    setEventLocation('');
   };
 
   const getStatusColor = (status: string) => {
@@ -536,6 +539,23 @@ export default function OrdersView() {
                   <option value="Delivered">✅ Delivered</option>
                   <option value="Cancelled">❌ Cancelled</option>
                 </select>
+                {selectedOrder.status === 'Processing' && (
+                  <div className="mt-3 animate-slide-in">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Set Estimated Delivery</label>
+                    <input 
+                      type="date"
+                      value={estDelivery}
+                      onChange={(e) => setEstDelivery(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50"
+                    />
+                    <button 
+                      onClick={() => handleStatusChange(selectedOrder.orderId, selectedOrder.status)}
+                      className="mt-2 w-full bg-blue-600 text-white py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-colors"
+                    >
+                      Update Date
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* ── Fulfillment Pipeline ── */}
@@ -604,7 +624,14 @@ export default function OrdersView() {
                       <div className={`pb-4 flex-1 -mt-0.5 ${idx === 0 ? '' : 'opacity-60'}`}>
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider mb-1 ${getTimelineColor(event.status)}`}>{event.status}</span>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${getTimelineColor(event.status)}`}>{event.status}</span>
+                              {event.location && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-bold uppercase tracking-tighter">
+                                  📍 {event.location}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-gray-700 font-medium leading-relaxed">{event.message}</p>
                           </div>
                           <p className="text-[9px] text-gray-300 font-bold whitespace-nowrap mt-0.5">
@@ -792,6 +819,7 @@ export default function OrdersView() {
                 </div>
               ) : (
                 <div className="space-y-4">
+
                   <div>
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Status Category</label>
                     <select
@@ -825,6 +853,19 @@ export default function OrdersView() {
                   </div>
                 </div>
               )}
+
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="text-base">📍</span> Event Location (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sorting Center, Kandy Hub, Out for Delivery"
+                  value={eventLocation}
+                  onChange={(e) => setEventLocation(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-gray-50 font-medium transition-all"
+                />
+              </div>
             </div>
 
             {/* Modal Footer */}

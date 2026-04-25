@@ -81,7 +81,31 @@ router.post('/register', authRateLimiter, blockDisposableEmail, async (req, res)
     }
 
     const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) return res.status(400).json({ error: 'Account already exists' });
+    if (existingUser) {
+      if (existingUser.isVerified) {
+        return res.status(400).json({ error: 'Account already exists' });
+      }
+      
+      // User exists but is not verified — resend a fresh code
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const codeHash = await bcrypt.hash(code, 10);
+      
+      existingUser.emailVerificationCodeHash = codeHash;
+      existingUser.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+      await existingUser.save();
+      
+      try {
+        await sendVerificationCodeEmail(normalizedEmail, code, existingUser.name);
+      } catch (err) {
+        console.error('Email delivery failed during resend:', err);
+      }
+      
+      return res.status(200).json({
+        requiresVerification: true,
+        email: normalizedEmail,
+        message: 'A new verification code has been sent to your email.',
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const code = String(Math.floor(100000 + Math.random() * 900000));

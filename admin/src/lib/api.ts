@@ -52,6 +52,7 @@ export type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | '
 export interface TrackingEvent {
   status: string;
   message: string;
+  location?: string;
   timestamp: string;
 }
 
@@ -71,6 +72,8 @@ export interface Order {
   };
   items: OrderItem[];
   totalAmount: number;
+  estimatedDelivery?: string;
+  cancellationReason?: string;
   trackingHistory: TrackingEvent[];
   isDeleted?: boolean;
   deletedAt?: string;
@@ -213,22 +216,22 @@ export async function restoreOrdersBulk(orderIds: string[]): Promise<void> {
   if (!res.ok) throw new Error('Failed to bulk restore orders');
 }
 
-export async function updateOrderStatus(orderId: string, status: OrderStatus, message?: string): Promise<Order> {
+export async function updateOrderStatus(orderId: string, status: OrderStatus, message?: string, location?: string, estimatedDelivery?: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ status, message }),
+    body: JSON.stringify({ status, message, location, estimatedDelivery }),
   });
   if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to update order status');
   return res.json();
 }
 
-export async function addTrackingEvent(orderId: string, status: string, message: string): Promise<Order> {
+export async function addTrackingEvent(orderId: string, status: string, message: string, location?: string): Promise<Order> {
   const res = await fetch(`${API_BASE}/orders/${orderId}/tracking`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ status, message }),
+    body: JSON.stringify({ status, message, location }),
   });
   if (res.status === 401) { adminLogout(); window.location.reload(); }
   if (!res.ok) throw new Error('Failed to add tracking event');

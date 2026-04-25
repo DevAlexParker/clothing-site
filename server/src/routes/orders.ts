@@ -46,11 +46,14 @@ const createOrderSchema = z.object({
 const statusUpdateSchema = z.object({
   status: z.enum(ORDER_STATUSES),
   message: z.string().trim().max(500).optional(),
+  location: z.string().trim().max(100).optional(),
+  estimatedDelivery: z.string().datetime().optional(),
 });
 
 const trackingSchema = z.object({
   status: z.string().trim().min(1).max(100),
   message: z.string().trim().min(1).max(500),
+  location: z.string().trim().max(100).optional(),
 });
 
 // POST /api/orders — Create a new order (used by Store)
@@ -196,9 +199,11 @@ router.post('/:id/cancel', authenticate, async (req: AuthRequest, res) => {
 
     const previousStatus = order.status;
     order.status = 'Cancelled';
+    order.cancellationReason = req.body.reason || 'Order cancelled by customer.';
     order.trackingHistory.push({
       status: 'Cancelled',
-      message: req.body.reason || 'Order cancelled by customer.',
+      message: order.cancellationReason,
+      location: 'System',
       timestamp: new Date()
     });
 
@@ -263,9 +268,14 @@ router.patch('/:id/status', authenticate, authorize(['admin']), async (req, res)
     }
 
     order.status = status;
+    if (estimatedDelivery) {
+      order.estimatedDelivery = new Date(estimatedDelivery);
+    }
+    
     order.trackingHistory.push({
       status,
       message: message || `Order status updated to ${status}`,
+      location: location || 'Warehouse',
       timestamp: new Date()
     });
 
@@ -301,6 +311,7 @@ router.post('/:id/tracking', authenticate, authorize(['admin']), async (req, res
     order.trackingHistory.push({
       status,
       message,
+      location: req.body.location || 'In Transit',
       timestamp: new Date()
     });
 

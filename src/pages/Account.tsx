@@ -10,9 +10,12 @@ interface Order {
   paymentStatus: 'pending' | 'paid' | 'failed';
   totalAmount: number;
   items: any[];
+  estimatedDelivery?: string;
+  cancellationReason?: string;
   trackingHistory: {
     status: string;
     message: string;
+    location?: string;
     timestamp: string;
   }[];
 }
@@ -355,6 +358,28 @@ export default function Account() {
                         </div>
                       </div>
 
+                      {selectedOrder.estimatedDelivery && selectedOrder.status !== 'Delivered' && selectedOrder.status !== 'Cancelled' && (
+                        <div className="mb-8 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+                          <span className="text-xl">📅</span>
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-emerald-800 tracking-widest">Estimated Delivery</p>
+                            <p className="text-sm font-bold text-emerald-900">
+                              {new Date(selectedOrder.estimatedDelivery).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedOrder.status === 'Cancelled' && selectedOrder.cancellationReason && (
+                        <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3">
+                          <span className="text-xl">✕</span>
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-red-800 tracking-widest">Cancellation Reason</p>
+                            <p className="text-sm font-bold text-red-900">{selectedOrder.cancellationReason}</p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="relative mt-8 md:mt-12 mb-8 px-0 md:px-4">
                         {/* Timeline line */}
                         <div className="absolute top-5 left-8 right-8 h-1 bg-gray-100 rounded-full hidden md:block" />
@@ -378,9 +403,16 @@ export default function Account() {
                                     {step}
                                   </p>
                                   {selectedOrder.trackingHistory.find(h => h.status === step) && (
-                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                                      {new Date(selectedOrder.trackingHistory.find(h => h.status === step)!.timestamp).toLocaleDateString()}
-                                    </p>
+                                    <div className="mt-1">
+                                      <p className="text-[10px] text-gray-400 font-medium">
+                                        {new Date(selectedOrder.trackingHistory.find(h => h.status === step)!.timestamp).toLocaleDateString()}
+                                      </p>
+                                      {selectedOrder.trackingHistory.find(h => h.status === step)?.location && (
+                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">
+                                          📍 {selectedOrder.trackingHistory.find(h => h.status === step)?.location}
+                                        </p>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -391,8 +423,8 @@ export default function Account() {
 
                       {/* Cancel Policy & Action */}
                       {(selectedOrder.status === 'Pending' || selectedOrder.status === 'Processing') && (
-                        <div className="mt-12 pt-8 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-6">
-                          <div className="flex items-start gap-3 bg-amber-50 rounded-2xl p-4 flex-1">
+                        <div className="mt-12 pt-8 border-t border-gray-100 space-y-6">
+                          <div className="flex items-start gap-3 bg-amber-50 rounded-2xl p-4">
                             <span className="text-lg">⚠️</span>
                             <div>
                               <p className="text-xs font-bold text-amber-900 mb-1">Cancellation Policy</p>
@@ -402,13 +434,32 @@ export default function Account() {
                               </p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => handleCancelOrder(selectedOrder.orderId)}
-                            disabled={cancellingId === selectedOrder.orderId}
-                            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-red-50 text-red-500 text-xs font-black tracking-widest hover:bg-red-500 hover:text-white transition-all disabled:opacity-50"
-                          >
-                            {cancellingId === selectedOrder.orderId ? 'CANCELLING...' : 'CANCEL ORDER'}
-                          </button>
+                          
+                          <div className="flex flex-col sm:flex-row items-end gap-4">
+                            <div className="flex-1 w-full">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Reason for Cancellation</label>
+                              <select 
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                className="w-full border border-gray-200 rounded-2xl px-4 py-4 text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 bg-gray-50 font-bold cursor-pointer transition-all"
+                              >
+                                <option value="">Select a reason...</option>
+                                <option value="Changed my mind">Changed my mind</option>
+                                <option value="Found a better price elsewhere">Found a better price elsewhere</option>
+                                <option value="Ordered by mistake">Ordered by mistake</option>
+                                <option value="Delivery time is too long">Delivery time is too long</option>
+                                <option value="Need to change shipping address">Need to change shipping address</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            <button
+                              onClick={() => handleCancelOrder(selectedOrder.orderId)}
+                              disabled={cancellingId === selectedOrder.orderId || !cancelReason}
+                              className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-red-50 text-red-500 text-xs font-black tracking-widest hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[52px]"
+                            >
+                              {cancellingId === selectedOrder.orderId ? 'CANCELLING...' : 'CANCEL ORDER'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -446,7 +497,14 @@ export default function Account() {
                                 )}
                                 <div className="w-5 h-5 rounded-full bg-white border-4 border-black flex-shrink-0 mt-1 z-10" />
                                 <div>
-                                  <p className="text-sm font-black text-gray-900">{log.status}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-black text-gray-900">{log.status}</p>
+                                    {log.location && (
+                                      <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full font-bold uppercase tracking-widest">
+                                        {log.location}
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-gray-500 mt-1 font-medium">{log.message}</p>
                                   <p className="text-[10px] text-gray-400 mt-1.5 font-bold">{new Date(log.timestamp).toLocaleString()}</p>
                                 </div>

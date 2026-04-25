@@ -130,6 +130,7 @@ export async function sendMailMessage(options: {
   const from =
     process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim() || '"AURA Clothing" <noreply@aura.local>';
 
+  console.log(`📧 Attempting to send email via ${mode} to: ${options.to}`);
   const info = await transport.sendMail({
     from,
     to: options.to,
