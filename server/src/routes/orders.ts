@@ -202,7 +202,7 @@ router.post('/:id/cancel', authenticate, async (req: AuthRequest, res) => {
     order.cancellationReason = req.body.reason || 'Order cancelled by customer.';
     order.trackingHistory.push({
       status: 'Cancelled',
-      message: order.cancellationReason,
+      message: order.cancellationReason || 'Order cancelled by customer.',
       location: 'System',
       timestamp: new Date()
     });
@@ -259,7 +259,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 // PATCH /api/orders/:id/status — Update order status (used by Admin)
 router.patch('/:id/status', authenticate, authorize(['admin']), async (req, res) => {
   try {
-    const { status, message } = statusUpdateSchema.parse(req.body);
+    const { status, message, location: updateLocation, estimatedDelivery } = statusUpdateSchema.parse(req.body);
 
     const order = await Order.findOne({ orderId: req.params.id });
     if (!order) {
@@ -275,7 +275,7 @@ router.patch('/:id/status', authenticate, authorize(['admin']), async (req, res)
     order.trackingHistory.push({
       status,
       message: message || `Order status updated to ${status}`,
-      location: location || 'Warehouse',
+      location: updateLocation || 'Warehouse',
       timestamp: new Date()
     });
 
@@ -380,7 +380,7 @@ router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
       return;
     }
 
-    await logAudit((req as AuthRequest).user._id, 'ORDER_PERMANENT_DELETE', 'ORDER', req, req.params.id);
+    await logAudit((req as AuthRequest).user._id, 'ORDER_PERMANENT_DELETE', 'ORDER', req, String(req.params.id));
 
     res.json({ message: 'Order permanently deleted' });
   } catch (error) {
