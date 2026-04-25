@@ -230,7 +230,6 @@ export default function ProductsView() {
   };
 
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 3).length;
-  const outOfStockCount = products.filter(p => p.stock === 0).length;
   const totalStockValue = products.reduce((sum, p) => sum + (p.stock * p.price), 0);
 
   return (

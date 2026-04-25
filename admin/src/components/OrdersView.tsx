@@ -20,7 +20,6 @@ export default function OrdersView() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'All'>('All');
 
   // Modal for adding process step
